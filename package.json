@@ -1,0 +1,8 @@
+{
+  "name": "feature-tests",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:ROIchain/feature-tests.git",
+  "author": "Zergity <zergity@gmail.com>",
+  "license": "MIT"
+}
