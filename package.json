@@ -7,12 +7,14 @@
   "license": "MIT",
   "scripts": {
     "build": "cd ../avalanchego && ./scripts/build.sh",
+    "test": "YARN_SILENT=0 node tests/*.js",
     "stop": "kill-port 9650",
     "start": "../avalanchego/build/avalanchego --public-ip=0.0.0.0 --http-port=9650 --staking-port=9651 --db-dir=tmp/node1 --staking-tls-cert-file=../avalanchego/staking/local/staker1.crt --staking-tls-key-file=../avalanchego/staking/local/staker1.key --log-level=debug --http-allowed-origins='*' --network-id=local --snow-sample-size=1 --snow-quorum-size=1 --staking-enabled=false --snow-optimal-processing=1000 --index-enabled=true --http-host=0.0.0.0 > avalanche.log 2>&1 &",
     "restart": "yarn stop && yarn start",
     "log": "tail -F avalanche.log"
   },
   "dependencies": {
+    "ethers": "^5.5.2",
     "kill-port": "^1.6.1"
   }
 }
