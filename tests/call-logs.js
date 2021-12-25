@@ -57,7 +57,7 @@ async function it() {
     let iface = new ethers.utils.Interface(abi);
 
     // call without accessList
-    {
+    try {
         const res = await provider.call({
             to: contract.address,
             from: from,
@@ -65,11 +65,14 @@ async function it() {
         });
 
         assert(res == ethers.utils.hexZeroPad('0x1', 32), 'eth_call smart contract invalid response')
+    } catch(err) {
+        console.error('call function', err)
+        return false
     }
 
 
     // call with accessList
-    {
+    try {
         const res = await provider.call({
             to: contract.address,
             from: from,
@@ -82,11 +85,14 @@ async function it() {
         assert(equal(signature, solidityErrorSignature), 'invalid signature')
 
         assert(msg.logs?.length > 0, 'eth_call smart contract logs empty')
+    } catch(err) {
+        console.error('call function and get logs', err)
+        return false
     }
 
 
     // call without accessList
-    {
+    try {
         const res = await provider.call({
             to: to,
             value: ethers.utils.parseEther('1.23'),
@@ -94,10 +100,13 @@ async function it() {
         });
 
         assert(res == "0x", 'eth_call invalid response')
+    } catch(err) {
+        console.error('call eth transfer', err)
+        return false
     }
 
     // call with accessList
-    {
+    try {
         const res = await provider.call({
             to: to,
             value: ethers.utils.parseEther('1.23'),
@@ -108,8 +117,10 @@ async function it() {
         const [signature, msg] = parseReturnedData(res)
 
         assert(equal(signature, solidityErrorSignature), 'invalid signature')
-
         assert(msg.logs?.length > 0, 'eth_call logs empty')
+    } catch(err) {
+        console.error('call eth transfer and get logs', err)
+        return false
     }
 
 
