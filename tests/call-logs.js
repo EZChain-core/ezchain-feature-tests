@@ -64,30 +64,26 @@ async function it() {
             data: iface.encodeFunctionData("transfer", [to, ethers.utils.parseEther("1.0")])
         });
 
-        assert(res == ethers.utils.hexZeroPad('0x1', 32), 'eth_call smart contract invalid response')
-    } catch(err) {
+        assert(res == ethers.utils.hexZeroPad('0x1', 32), 'call function: invalid response')
+    } catch (err) {
         console.error('call function', err)
         return false
     }
 
-
     // call with accessList
     try {
-        const res = await provider.call({
-            to: contract.address,
+        const res = await contract.callStatic.transfer(to, ethers.utils.parseEther("1.0"), {
             from: from,
-            data: iface.encodeFunctionData("transfer", [to, ethers.utils.parseEther("1.0")]),
             accessList: accessList
-        });
-
-        const [signature, msg] = parseReturnedData(res)
-
-        assert(equal(signature, solidityErrorSignature), 'invalid signature')
-
-        assert(msg.logs?.length > 0, 'eth_call smart contract logs empty')
-    } catch(err) {
-        console.error('call function and get logs', err)
+        })
+        console.error('call function and get logs: logs not found')
         return false
+    } catch (err) {
+        assert(err.reason, 'call function and get logs: logs not found in reason')
+        if (err.reason) {
+            const result = JSON.parse(err.reason)
+            assert(result.logs?.length > 0, 'call function and get logs: empty logs')
+        }
     }
 
 
@@ -99,8 +95,8 @@ async function it() {
             from: from
         });
 
-        assert(res == "0x", 'eth_call invalid response')
-    } catch(err) {
+        assert(res == "0x", 'call eth transfer: invalid response')
+    } catch (err) {
         console.error('call eth transfer', err)
         return false
     }
@@ -116,13 +112,12 @@ async function it() {
 
         const [signature, msg] = parseReturnedData(res)
 
-        assert(equal(signature, solidityErrorSignature), 'invalid signature')
-        assert(msg.logs?.length > 0, 'eth_call logs empty')
-    } catch(err) {
+        assert(equal(signature, solidityErrorSignature), 'call eth transfer and get logs: invalid signature')
+        assert(msg.logs?.length > 0, 'call eth transfer and get logs: empty logs')
+    } catch (err) {
         console.error('call eth transfer and get logs', err)
         return false
     }
-
 
     console.log(`\tsuccess`)
 }
