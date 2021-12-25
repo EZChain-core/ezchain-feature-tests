@@ -20,16 +20,19 @@ async function it() {
 
     const blockNumber = receipt.blockNumber
 
-    {
+    try {
         const logs = await provider.getLogs({
             fromBlock: blockNumber-10,
             toBlock: blockNumber,
             address: AddressZero,
         })
         assert(logs?.some(log => log.transactionHash == receipt.transactionHash), 'getLogs (address) not found tx hash')
+    } catch(err) {
+        console.error('getLogs (address)', err)
+        return false
     }
 
-    {
+    try {
         const logs = await provider.getLogs({
             fromBlock: blockNumber-5,
             topics: [
@@ -37,9 +40,12 @@ async function it() {
             ],
         })
         assert(logs?.some(log => log.transactionHash == receipt.transactionHash), 'getLogs (Transfer) not found tx hash')
+    } catch(err) {
+        console.error('getLogs (Transfer)', err)
+        return false
     }
 
-    {
+    try {
         const logs = await provider.getLogs({
             fromBlock: blockNumber-15,
             topics: [
@@ -48,9 +54,12 @@ async function it() {
             ],
         })
         assert(logs?.some(log => log.transactionHash == receipt.transactionHash), 'getLogs (from) not found tx hash')
+    } catch(err) {
+        console.error('getLogs (from)', err)
+        return false
     }
 
-    {
+    try {
         const logs = await provider.getLogs({
             fromBlock: blockNumber-15,
             topics: [
@@ -60,14 +69,20 @@ async function it() {
             ],
         })
         assert(logs?.some(log => log.transactionHash == receipt.transactionHash), 'getLogs (to) not found tx hash')
+    } catch(err) {
+        console.error('getLogs (to)', err)
+        return false
     }
 
-    {
+    try {
         const logs = await provider.getLogs({
             fromBlock: blockNumber-15,
             toBlock: blockNumber-1,
         })
         assert(!logs?.some(log => log.transactionHash == receipt.transactionHash), 'getLogs out range found tx hash')
+    } catch(err) {
+        console.error('getLogs out range', err)
+        return false
     }
 
     console.log(`\tsuccess`)
