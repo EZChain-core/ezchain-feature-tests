@@ -1,6 +1,7 @@
 const { ethers } = require('ethers');
 const { AddressZero } = ethers.constants
 const { assert } = require('console');
+const { deploy } = require('../lib/solc_util')
 
 const RPC = "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
@@ -82,6 +83,37 @@ async function it() {
         assert(!logs?.some(log => log.transactionHash == receipt.transactionHash), 'getLogs out range found tx hash')
     } catch(err) {
         console.error('getLogs out range', err)
+        return false
+    }
+
+    try {
+        const contract = await deploy(`
+            function doTransfer(address payable to, uint amount) payable external {
+                to.transfer(amount);
+            }
+        `, ewoq)
+
+        const res = await contract.doTransfer(AddressZero, ethers.utils.parseEther('1.23'), { value: ethers.utils.parseEther('2.34') })
+        const receipt = await res.wait(1)
+
+        assert(receipt.logs?.length == 2, 'contract reciept and send eth logs != 2')
+
+        const blockNumber = receipt.blockNumber
+
+        try {
+            const logs = await provider.getLogs({
+                fromBlock: blockNumber-5,
+                topics: [
+                    '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+                ],
+            })
+            assert(logs?.filter(log => log.transactionHash == receipt.transactionHash)?.length >= 2, 'getLogs (address) <= 2')
+        } catch(err) {
+            console.error('contract reciept and send eth: getLogs (Transfer)', err)
+            return false
+        }
+    } catch(err) {
+        console.error('transfer in contract call', err)
         return false
     }
 
