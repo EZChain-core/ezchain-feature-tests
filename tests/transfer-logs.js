@@ -3,7 +3,7 @@ const { AddressZero } = ethers.constants
 const { assert } = require('console');
 const { deploy } = require('../lib/solc_util')
 
-const RPC = "http://localhost:9650/ext/bc/C/rpc"
+const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
 const ewoq = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
 const onetwo = '0x1234567890123456789012345678901234567890'
