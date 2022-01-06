@@ -1,6 +1,7 @@
 const { ethers } = require('ethers');
 const fs = require('fs');
 const { assert } = require('console');
+const { parseReturnedDataWithLogs } = require('../lib/parse_util')
 
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
@@ -11,24 +12,6 @@ const to = '0x1234567890123456789012345678901234567890'
 
 const solidityErrorSignature = new Uint8Array([0x08, 0xc3, 0x79, 0xa0]);
 const accessList = [{ address: "0x5555555555555555555555555555555555555555" }]
-
-
-function parseReturnedData(res) {
-    const bytes = ethers.utils.arrayify(res)
-    const lenPos = 4 + 32
-    const msgPos = 4 + 32 + 32
-    len = ethers.BigNumber.from(ethers.utils.hexlify(bytes.slice(lenPos, lenPos + 32))).toNumber()
-
-    const signature = bytes.slice(0, 4)
-
-    const msg = bytes.slice(msgPos, msgPos + len)
-
-    const jsonString = Buffer.from(msg).toString('utf8')
-
-    const parsedData = JSON.parse(jsonString)
-
-    return [signature, parsedData]
-}
 
 
 async function it() {
@@ -101,7 +84,7 @@ async function it() {
             accessList: accessList
         });
 
-        const [signature, msg] = parseReturnedData(res)
+        const [signature, msg] = parseReturnedDataWithLogs(res)
 
         assert(signature.toString() == solidityErrorSignature.toString(), 'call eth transfer and get logs: invalid signature')
         assert(msg.logs?.length > 0, 'call eth transfer and get logs: empty logs')

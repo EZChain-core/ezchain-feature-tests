@@ -1,11 +1,14 @@
 const { ethers } = require('ethers');
 const { assert } = require('console');
 const { compile } = require('../lib/solc_util')
+const { deploy } = require('../lib/solc_util')
+const { parseReturnedDataWithLogs } = require('../lib/parse_util')
 
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
 const wallet = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
 const from = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+const accessList = [{ address: "0x5555555555555555555555555555555555555555" }]
 
 
 const result = compile(`
@@ -19,7 +22,7 @@ const result = compile(`
 
 let iface = new ethers.utils.Interface(result.abi)
 
-async function sendBatchTx(from, recipients) {
+async function sendBatchTx(from, recipients, accessList = []) {
     const txs = recipients.map(function (recipient) {
         if (!recipient.data) {
             recipient.data = '0x'
@@ -33,8 +36,31 @@ async function sendBatchTx(from, recipients) {
     const res = await wallet.sendTransaction({
         from: from,
         to: "0x5555555555555555555555555555555555555555",
-        data: data
+        data: data,
+        accessList: accessList
     })
+
+    return res
+}
+
+
+async function callBatchTx(from, recipients) {
+    const txs = recipients.map(function (recipient) {
+        if (!recipient.data) {
+            recipient.data = '0x'
+        }
+        recipient.data = ethers.utils.arrayify(recipient.data);
+        return recipient;
+    })
+
+    const data = iface.encodeFunctionData("callBatch", [txs])
+
+    const res = await provider.call({
+        to: "0x5555555555555555555555555555555555555555",
+        from: from,
+        data: data,
+        accessList: accessList
+    });
 
     return res
 }
@@ -43,25 +69,120 @@ async function sendBatchTx(from, recipients) {
 async function it() {
     console.log(require('path').basename(__filename))
 
-    recipients = [
-        {
-            to: "0xc233de409e6463932de0b21187855a61dbba0416",
-            value: ethers.utils.parseEther('1')
-        },
-        {
-            to: "0xa12a9128b30ca44ef11749dffe18a6c94c9c58a6",
-            value: ethers.utils.parseEther('2')
-        },
-        {
-            to: "0x1234567890123456789012345678901234567890",
-            value: ethers.utils.parseEther('3')
+    // Multisend
+    {
+        recipients = [
+            {
+                to: "0xc233de409e6463932de0b21187855a61dbba0416",
+                value: ethers.utils.parseEther('1')
+            },
+            {
+                to: "0xa12a9128b30ca44ef11749dffe18a6c94c9c58a6",
+                value: ethers.utils.parseEther('2')
+            },
+            {
+                to: "0x1234567890123456789012345678901234567890",
+                value: ethers.utils.parseEther('3')
+            }
+        ]
+
+        const balance1Before = await provider.getBalance("0xc233de409e6463932de0b21187855a61dbba0416");
+        const balance2Before = await provider.getBalance("0xa12a9128b30ca44ef11749dffe18a6c94c9c58a6");
+        const balance3Before = await provider.getBalance("0x1234567890123456789012345678901234567890");
+
+        try {
+            const res = await sendBatchTx(from, recipients)
+            await res.wait(1)
+        } catch (err) {
+            console.error('failed to send batchTX', err)
+            return false
         }
-    ]
 
-    const res = await sendBatchTx(from, recipients)
 
-    const receipt = await res.wait(1)
-    console.log(receipt)
+        const balance1After = await provider.getBalance("0xc233de409e6463932de0b21187855a61dbba0416");
+        const balance2After = await provider.getBalance("0xa12a9128b30ca44ef11749dffe18a6c94c9c58a6");
+        const balance3After = await provider.getBalance("0x1234567890123456789012345678901234567890");
+
+        assert(balance1After - balance1Before == ethers.utils.parseEther('1'), 'multisend: Incorrect balance1 after sending')
+        assert(balance2After - balance2Before == ethers.utils.parseEther('2'), 'multisend: Incorrect balance2 after sending')
+        assert(balance3After - balance3Before == ethers.utils.parseEther('3'), 'multisend: Incorrect balance3 after sending')
+    }
+
+
+    // Approve and call
+    {
+        const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
+        const thirdParty = await deploy('thirdParty.sol', wallet)
+
+        const signerAddr = erc20.signer.address
+        const beforeBalance = await erc20.balanceOf(signerAddr)
+
+        recipients = [
+            {
+                to: erc20.address,
+                value: 0,
+                data: erc20.interface.encodeFunctionData("approve", [thirdParty.address, 40])
+            },
+            {
+                to: thirdParty.address,
+                value: 0,
+                data: thirdParty.interface.encodeFunctionData("spendToken",
+                    [erc20.address, signerAddr, "0xc233de409e6463932de0b21187855a61dbba0416", 10])
+            },
+            {
+                to: thirdParty.address,
+                value: 0,
+                data: thirdParty.interface.encodeFunctionData("spendToken",
+                    [erc20.address, signerAddr, "0x1234567890123456789012345678901234567890", 10])
+            }
+        ]
+
+
+        try {
+            const res = await sendBatchTx(from, recipients, [{ address: erc20.address }])
+            await res.wait(1)
+        } catch (err) {
+            console.error('failed to send batchTX', err)
+            return false
+        }
+
+        const afterBalance = await erc20.balanceOf(signerAddr)
+        assert(beforeBalance.sub(afterBalance) == 20, 'Approve and call: incorrect balance after spending')
+    }
+
+
+    // Call and get logs
+    {
+        recipients = [
+            {
+                to: "0xc233de409e6463932de0b21187855a61dbba0416",
+                value: ethers.utils.parseEther('1')
+            },
+            {
+                to: "0xa12a9128b30ca44ef11749dffe18a6c94c9c58a6",
+                value: ethers.utils.parseEther('2')
+            },
+            {
+                to: "0x1234567890123456789012345678901234567890",
+                value: ethers.utils.parseEther('3')
+            }
+        ]
+
+        var res;
+        try {
+            res = await callBatchTx(from, recipients)
+
+            const [signature, msg] = parseReturnedDataWithLogs(res)
+            assert(msg.logs?.length > 0, 'call batchTx and get logs: empty logs')
+
+            const result = iface.decodeFunctionResult("callBatch", msg.returnData)
+            assert(result.results?.length == 3, 'call batchTx and get logs: length must be 3')
+
+        } catch (err) {
+            console.error('failed to call batchTX', err)
+            return false
+        }
+    }
 
     console.log(`\tsuccess`)
 }
