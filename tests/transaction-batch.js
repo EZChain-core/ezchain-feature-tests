@@ -8,7 +8,8 @@ const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
 const wallet = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
 const from = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
-const accessList = [{ address: "0x5555555555555555555555555555555555555555" }]
+const EVMPP = "0x5555555555555555555555555555555555555555"
+const accessList = [{ address: EVMPP }]
 
 
 const result = compile(`
@@ -35,7 +36,7 @@ async function sendBatchTx(from, recipients, accessList = []) {
 
     const res = await wallet.sendTransaction({
         from: from,
-        to: "0x5555555555555555555555555555555555555555",
+        to: EVMPP,
         data: data,
         accessList: accessList
     })
@@ -56,7 +57,7 @@ async function callBatchTx(from, recipients) {
     const data = iface.encodeFunctionData("callBatch", [txs])
 
     const res = await provider.call({
-        to: "0x5555555555555555555555555555555555555555",
+        to: EVMPP,
         from: from,
         data: data,
         accessList: accessList
@@ -182,6 +183,43 @@ async function it() {
             console.error('failed to call batchTX', err)
             return false
         }
+    }
+
+    // High Level Call and Results
+    {
+        const contractString = await deploy(`
+            function returnString(string s) external returns (string) {
+                require(s.length > 0, "empty string");
+                return s + " there";
+            }
+        `)
+
+        const contractInt = await deploy(`
+            function returnInt(int i) external returns (int) {
+                require(i > 0, "must be positive integer");
+                return i + 13;
+            }
+        `)
+
+        const result = await compile(`
+            struct Tx {
+                address to;
+                bytes  data;
+                uint256 value;	// ether value to transfer
+            }
+            function callBatch(Tx[] calldata txs) external returns (string, int) {}
+        `)
+
+        const c = new ethers.Contract(EVMPP, result.abi, provider)
+        const { s, i } = await c.callStatic.callBatch({
+            to: contractString.address,
+            data: contractString.populateTransaction.returnString("hello").data,
+        }, {
+            to: contractInt.address,
+            data: contractInt.populateTransaction.returnString(6).data,
+        })
+        assert(s == "hello there", 'incorrect first return value')
+        assert(i == 13+6, 'incorrect second return value')
     }
 
     console.log(`\tsuccess`)
