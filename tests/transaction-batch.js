@@ -213,7 +213,7 @@ async function it() {
         const c = new ethers.Contract(EVMPP, result.abi, provider)
 
         try {
-            const [s, i] = await c.callStatic.callBatch([{
+            const [{s}, i] = await c.callStatic.callBatch([{
                 to: contractString.address,
                 data: contractString.interface.encodeFunctionData("returnString", ["hello"]),
                 value: 0
@@ -264,7 +264,7 @@ async function it() {
         const c = new ethers.Contract(EVMPP, result.abi, provider)
 
         try {
-            const [s, i] = await c.callStatic.callBatch([{
+            const [{s, i}, n] = await c.callStatic.callBatch([{
                 to: contractStringInt.address,
                 data: contractStringInt.interface.encodeFunctionData("returnStringInt", []),
                 value: 0
@@ -274,9 +274,9 @@ async function it() {
                 value: 0
             }])
 
-            assert(s.s == "test", 'incorrect first return value')
-            assert(s.i == 1, 'incorrect second return value')
-            assert(i == 13 + 6, 'incorrect third return value')
+            assert(s == "test", 'incorrect first return value')
+            assert(i == 1, 'incorrect second return value')
+            assert(n == 13 + 6, 'incorrect third return value')
 
         } catch (err) {
             console.error('failed to callStatic', err)
