@@ -235,8 +235,9 @@ async function it() {
     // High Level Call and Results (contract return multiple values)
     {
         const contractStringInt = await deploy(`
-        function returnStringInt() external returns (string memory, int) {
-            return ("test", 1);
+        function returnStringInt(string calldata s) external returns (string calldata, int) {
+            require(bytes(s).length > 0, "string must not empty");
+            return (s, 1);
         }
         `, wallet)
 
@@ -266,7 +267,7 @@ async function it() {
         try {
             const [{s, i}, n] = await c.callStatic.callBatch([{
                 to: contractStringInt.address,
-                data: contractStringInt.interface.encodeFunctionData("returnStringInt", []),
+                data: contractStringInt.interface.encodeFunctionData("returnStringInt", ["test"]),
                 value: 0
             }, {
                 to: contractInt.address,
@@ -281,6 +282,40 @@ async function it() {
         } catch (err) {
             console.error('failed to callStatic', err)
             return false
+        }
+
+        try {
+            await c.callStatic.callBatch([{
+                to: contractStringInt.address,
+                data: contractStringInt.interface.encodeFunctionData("returnStringInt", [""]),
+                value: 0
+            }, {
+                to: contractInt.address,
+                data: contractInt.interface.encodeFunctionData("returnInt", [0]),
+                value: 0
+            }])
+
+            assert(false, 'this code should not executed')
+
+        } catch (err) {
+            assert(err?.reason == 'string must not empty', 'revert reason not match')
+        }
+
+        try {
+            await c.callStatic.callBatch([{
+                to: contractStringInt.address,
+                data: contractStringInt.interface.encodeFunctionData("returnStringInt", ["test"]),
+                value: 0
+            }, {
+                to: contractInt.address,
+                data: contractInt.interface.encodeFunctionData("returnInt", [0]),
+                value: 0
+            }])
+
+            assert(false, 'this code should not executed')
+
+        } catch (err) {
+            assert(err?.reason == 'must be positive integer', 'revert reason not match')
         }
     }
 
