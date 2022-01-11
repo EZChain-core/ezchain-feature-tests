@@ -203,15 +203,12 @@ async function it() {
             struct stringResult {
                 string s;
             }
-            struct intResult {
-                int i;
-            }
             struct Tx {
                 address to;
                 bytes  data;
                 uint256 value;	// ether value to transfer
             }
-            function callBatch(Tx[] calldata txs) external returns (stringResult memory, intResult memory) {}
+            function callBatch(Tx[] calldata txs) external returns (stringResult memory, int) {}
         `)
         const c = new ethers.Contract(EVMPP, result.abi, provider)
 
@@ -256,15 +253,12 @@ async function it() {
                 string s;
                 int i;
             }
-            struct intResult {
-                int i;
-            }
             struct Tx {
                 address to;
                 bytes  data;
                 uint256 value;	// ether value to transfer
             }
-            function callBatch(Tx[] calldata txs) external returns (stringIntResult memory, intResult memory) {}
+            function callBatch(Tx[] calldata txs) external returns (stringIntResult memory, int) {}
         `)
 
         const c = new ethers.Contract(EVMPP, result.abi, provider)
