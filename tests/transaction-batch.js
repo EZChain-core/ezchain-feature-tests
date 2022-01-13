@@ -200,20 +200,17 @@ async function it() {
 
 
         const result = compile(`
-            struct stringResult {
-                string s;
-            }
             struct Tx {
                 address to;
                 bytes  data;
                 uint256 value;	// ether value to transfer
             }
-            function callBatch(Tx[] calldata txs) external returns (stringResult memory, int) {}
+            function callBatch(Tx[] calldata txs) external returns (int) {}
         `)
         const c = new ethers.Contract(EVMPP, result.abi, provider)
 
         try {
-            const [{s}, i] = await c.callStatic.callBatch([{
+            const i = await c.callStatic.callBatch([{
                 to: contractString.address,
                 data: contractString.interface.encodeFunctionData("returnString", ["hello"]),
                 value: 0
@@ -223,7 +220,6 @@ async function it() {
                 value: 0
             }])
 
-            assert(s == "hello there", 'incorrect first return value')
             assert(i == 13 + 6, 'incorrect second return value')
         } catch (err) {
             console.error('failed to callStatic', err)
@@ -250,34 +246,31 @@ async function it() {
 
 
         const result = compile(`
-            struct stringIntResult {
-                string s;
-                int i;
-            }
             struct Tx {
                 address to;
                 bytes  data;
                 uint256 value;	// ether value to transfer
             }
-            function callBatch(Tx[] calldata txs) external returns (stringIntResult memory, int) {}
+            function callBatch(Tx[] calldata txs) external returns (string memory, int) {}
         `)
 
         const c = new ethers.Contract(EVMPP, result.abi, provider)
 
         try {
-            const [{s, i}, n] = await c.callStatic.callBatch([{
-                to: contractStringInt.address,
-                data: contractStringInt.interface.encodeFunctionData("returnStringInt", ["test"]),
-                value: 0
-            }, {
-                to: contractInt.address,
-                data: contractInt.interface.encodeFunctionData("returnInt", [6]),
-                value: 0
-            }])
+            const [s, i] = await c.callStatic.callBatch([
+                {
+                    to: contractInt.address,
+                    data: contractInt.interface.encodeFunctionData("returnInt", [6]),
+                    value: 0
+                },
+                {
+                    to: contractStringInt.address,
+                    data: contractStringInt.interface.encodeFunctionData("returnStringInt", ["test"]),
+                    value: 0
+                }])
 
             assert(s == "test", 'incorrect first return value')
             assert(i == 1, 'incorrect second return value')
-            assert(n == 13 + 6, 'incorrect third return value')
 
         } catch (err) {
             console.error('failed to callStatic', err)
