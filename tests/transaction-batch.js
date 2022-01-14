@@ -252,9 +252,47 @@ async function it() {
                 uint256 value;	// ether value to transfer
             }
             function callBatch(Tx[] calldata txs) external returns (string memory, int) {}
+            function something(Tx[] calldata txs) external returns (string memory, int) {}
+            function somethingElse() external returns (string memory, int) {}
         `)
 
         const c = new ethers.Contract(EVMPP, result.abi, provider)
+
+        try {
+            const res = await provider.call({
+                to: EVMPP,
+                value: 0,
+                data: c.interface.encodeFunctionData("something", [[{
+                    to: contractInt.address,
+                    data: contractInt.interface.encodeFunctionData("returnInt", [6]),
+                    value: 0
+                }, {
+                    to: contractStringInt.address,
+                    data: contractStringInt.interface.encodeFunctionData("returnStringInt", ["test"]),
+                    value: 0
+                }]]),
+            })
+
+            assert(res == "0x", 'call to non-batch function must return 0x')
+
+        } catch (err) {
+            console.error('failed to callStatic', err)
+            return false
+        }
+
+        try {
+            const res = await provider.call({
+                to: EVMPP,
+                value: 0,
+                data: c.interface.encodeFunctionData("somethingElse", []),
+            })
+
+            assert(res == "0x", 'call to non-batch function must return 0x')
+
+        } catch (err) {
+            console.error('failed to callStatic', err)
+            return false
+        }
 
         try {
             const [s, i] = await c.callStatic.callBatch([
