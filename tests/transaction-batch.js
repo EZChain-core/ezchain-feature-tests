@@ -18,7 +18,7 @@ const result = compile(`
         bytes  data;
         uint256 value;	// ether value to transfer
     }
-    function callBatch(Tx[] calldata txs) external returns (bytes[] memory results) {}
+    function call(Tx[] calldata txs) external returns (bytes[] memory results) {}
 `)
 
 let iface = new ethers.utils.Interface(result.abi)
@@ -32,7 +32,7 @@ async function sendBatchTx(from, recipients, accessList = []) {
         return recipient;
     })
 
-    const data = iface.encodeFunctionData("callBatch", [txs])
+    const data = iface.encodeFunctionData("call", [txs])
 
     const res = await wallet.sendTransaction({
         from: from,
@@ -54,7 +54,7 @@ async function callBatchTx(from, recipients) {
         return recipient;
     })
 
-    const data = iface.encodeFunctionData("callBatch", [txs])
+    const data = iface.encodeFunctionData("call", [txs])
 
     const res = await provider.call({
         to: EVMPP,
@@ -205,12 +205,12 @@ async function it() {
                 bytes  data;
                 uint256 value;	// ether value to transfer
             }
-            function callBatch(Tx[] calldata txs) external returns (int) {}
+            function call(Tx[] calldata txs) external returns (int) {}
         `)
         const c = new ethers.Contract(EVMPP, result.abi, provider)
 
         try {
-            const i = await c.callStatic.callBatch([{
+            const i = await c.callStatic.call([{
                 to: contractString.address,
                 data: contractString.interface.encodeFunctionData("returnString", ["hello"]),
                 value: 0
@@ -251,7 +251,7 @@ async function it() {
                 bytes  data;
                 uint256 value;	// ether value to transfer
             }
-            function callBatch(Tx[] calldata txs) external returns (string memory, int) {}
+            function call(Tx[] calldata txs) external returns (string memory, int) {}
             function something(Tx[] calldata txs) external returns (string memory, int) {}
             function somethingElse() external returns (string memory, int) {}
         `)
@@ -295,7 +295,7 @@ async function it() {
         }
 
         try {
-            const [s, i] = await c.callStatic.callBatch([
+            const [s, i] = await c.callStatic.call([
                 {
                     to: contractInt.address,
                     data: contractInt.interface.encodeFunctionData("returnInt", [6]),
@@ -316,7 +316,7 @@ async function it() {
         }
 
         try {
-            await c.callStatic.callBatch([{
+            await c.callStatic.call([{
                 to: contractStringInt.address,
                 data: contractStringInt.interface.encodeFunctionData("returnStringInt", [""]),
                 value: 0
@@ -333,7 +333,7 @@ async function it() {
         }
 
         try {
-            await c.callStatic.callBatch([{
+            await c.callStatic.call([{
                 to: contractStringInt.address,
                 data: contractStringInt.interface.encodeFunctionData("returnStringInt", ["test"]),
                 value: 0
