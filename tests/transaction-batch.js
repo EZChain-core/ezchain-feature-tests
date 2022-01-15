@@ -23,7 +23,7 @@ const result = compile(`
 
 let iface = new ethers.utils.Interface(result.abi)
 
-async function sendBatchTx(from, recipients, accessList = []) {
+async function sendBatchTx(from, recipients, accessList = [], gasLimit = null) {
     const txs = recipients.map(function (recipient) {
         if (!recipient.data) {
             recipient.data = '0x'
@@ -38,7 +38,8 @@ async function sendBatchTx(from, recipients, accessList = []) {
         from: from,
         to: EVMPP,
         data: data,
-        accessList: accessList
+        accessList: accessList,
+        gasLimit: gasLimit
     })
 
     return res
@@ -65,6 +66,28 @@ async function callBatchTx(from, recipients) {
 
     return res
 }
+
+
+async function estimateBatchTxGas(from, recipients) {
+    const txs = recipients.map(function (recipient) {
+        if (!recipient.data) {
+            recipient.data = '0x'
+        }
+        recipient.data = ethers.utils.arrayify(recipient.data);
+        return recipient;
+    })
+
+    const data = iface.encodeFunctionData("call", [txs])
+
+    const res = await provider.estimateGas({
+        to: EVMPP,
+        from: from,
+        data: data
+    });
+
+    return res
+}
+
 
 
 async function it() {
@@ -349,6 +372,81 @@ async function it() {
             assert(err?.reason == 'must be positive integer', 'revert reason not match')
         }
     }
+
+
+    // Test gas limit
+    {
+        const contractString = await deploy(`
+            function returnString(string memory s) external returns (string memory) {
+                require(bytes(s).length > 0, "empty string");
+                return string(abi.encodePacked(s, " there"));
+            }
+        `, wallet)
+
+        const contractInt = await deploy(`
+            function returnInt(int i) external returns (int) {
+                require(i > 0, "must be positive integer");
+                return i + 13;
+            }
+        `, wallet)
+
+
+        const result = compile(`
+            struct Tx {
+                address to;
+                bytes  data;
+                uint256 value;	// ether value to transfer
+            }
+            function call(Tx[] calldata txs) external returns (int) {}
+        `)
+        const c = new ethers.Contract(EVMPP, result.abi, provider)
+
+
+        const tx1 = {
+            to: contractString.address,
+            data: contractString.interface.encodeFunctionData("returnString", ["hello"]),
+            value: 0
+        }
+
+        const tx2 = {
+            to: contractInt.address,
+            data: contractInt.interface.encodeFunctionData("returnInt", [6]),
+            value: 0
+        }
+
+
+        const tx3 = {
+            to: contractInt.address,
+            data: contractInt.interface.encodeFunctionData("returnInt", [6]),
+            value: 0
+        }
+
+        const gas1 = await provider.estimateGas(tx1)
+        const gas2 = await provider.estimateGas(tx2)
+        const gas3 = await provider.estimateGas(tx3)
+
+        const batchGas = await estimateBatchTxGas(from, [tx1, tx2, tx3])
+
+        assert(batchGas.gt(21000 + (gas1 - 21000), (gas2 - 21000), (gas3 - 21000)), "Estimated BatchTx gas is incorrect.")
+
+        try {
+            const res = await sendBatchTx(from, [tx1, tx2, tx3], [], gasLimit = batchGas)
+            await res.wait(1)
+
+        } catch (err) {
+            assert(false, "Batch tx must be successful.")
+            return false
+        }
+
+        try {
+            const res = await sendBatchTx(from, [tx1, tx2, tx3], [], gasLimit = batchGas.sub(1))
+            await res.wait(1)
+            assert(false, 'Batch Tx must be failed.')
+        } catch (err) {
+        }
+
+    }
+
 
     console.log(`\tsuccess`)
 }
