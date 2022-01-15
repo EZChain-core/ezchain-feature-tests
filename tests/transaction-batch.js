@@ -445,6 +445,15 @@ async function it() {
         } catch (err) {
         }
 
+
+        try {
+            result = await c.callStatic.call([tx1, tx2, tx3], { gasLimit: batchGas.sub(1) })
+            assert(false, 'callStatic: Batch Tx must be failed.')
+
+        } catch (err) {
+            const body = JSON.parse(err.error.body)
+            assert(body?.error?.message == 'out of gas', 'tx must be out of gas')
+        }
     }
 
 
