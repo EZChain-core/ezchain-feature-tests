@@ -9,7 +9,10 @@ const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 
 const wallet = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
 const from = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
 const EVMPP = "0x5555555555555555555555555555555555555555"
-const accessList = [{ address: EVMPP }]
+const callLogsAccessList = [{
+    address: "0x5555555555555555555555555555555555555555",
+    storageKeys: [ "0x5555555555555555555555555555555555555555555555555555555555555555" ],
+}]
 
 
 const result = compile(`
@@ -61,7 +64,7 @@ async function callBatchTx(from, recipients) {
         to: EVMPP,
         from: from,
         data: data,
-        accessList: accessList
+        accessList: callLogsAccessList
     });
 
     return res

@@ -11,7 +11,10 @@ const from = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
 const to = '0x1234567890123456789012345678901234567890'
 
 const solidityErrorSignature = new Uint8Array([0x08, 0xc3, 0x79, 0xa0]);
-const accessList = [{ address: "0x5555555555555555555555555555555555555555" }]
+const callLogsAccessList = [{
+    address: "0x5555555555555555555555555555555555555555",
+    storageKeys: [ "0x5555555555555555555555555555555555555555555555555555555555555555" ],
+}]
 
 
 async function it() {
@@ -48,7 +51,7 @@ async function it() {
     try {
         const res = await contract.callStatic.transfer(to, ethers.utils.parseEther("1.0"), {
             from: from,
-            accessList: accessList
+            accessList: callLogsAccessList
         })
         console.error('call function and get logs: logs not found')
         return false
@@ -81,7 +84,7 @@ async function it() {
             to: to,
             value: ethers.utils.parseEther('1.23'),
             from: from,
-            accessList: accessList
+            accessList: callLogsAccessList
         });
 
         const [signature, msg] = parseReturnedDataWithLogs(res)
