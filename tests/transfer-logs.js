@@ -96,7 +96,7 @@ async function it() {
         const res = await contract.doTransfer(AddressZero, ethers.utils.parseEther('1.23'), { value: ethers.utils.parseEther('2.34') })
         const receipt = await res.wait(1)
 
-        assert(receipt.logs?.length == 2, 'contract reciept and send eth logs != 2')
+        assert(receipt.logs?.length == 2, 'contract receipt and send eth logs != 2')
 
         const blockNumber = receipt.blockNumber
 
@@ -109,7 +109,7 @@ async function it() {
             })
             assert(logs?.filter(log => log.transactionHash == receipt.transactionHash)?.length >= 2, 'getLogs (address) <= 2')
         } catch(err) {
-            console.error('contract reciept and send eth: getLogs (Transfer)', err)
+            console.error('contract receipt and send eth: getLogs (Transfer)', err)
             return false
         }
     } catch(err) {
