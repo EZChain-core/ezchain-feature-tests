@@ -3,6 +3,7 @@ const { compile } = require('../lib/solc_util')
 const { deploy } = require('../lib/solc_util')
 
 const { parseReturnedDataWithLogs } = require('../lib/parse_util')
+const { getWallets } = require('../lib/accounts')
 
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
@@ -14,8 +15,9 @@ const callLogsAccessList = [{
     storageKeys: ["0x5555555555555555555555555555555555555555555555555555555555555555"],
 }]
 
-var assert = require('assert');
+var wallets = getWallets(provider);
 
+var assert = require('assert');
 
 const result = compile(`
     struct Tx {
@@ -28,7 +30,7 @@ const result = compile(`
 
 let iface = new ethers.utils.Interface(result.abi)
 
-async function sendBatchTx(from, recipients, accessList = [], gasLimit = null) {
+async function sendBatchTx(wallet, recipients, accessList = [], gasLimit = null) {
     const txs = recipients.map(function (recipient) {
         if (!recipient.data) {
             recipient.data = '0x'
@@ -40,7 +42,6 @@ async function sendBatchTx(from, recipients, accessList = [], gasLimit = null) {
     const data = iface.encodeFunctionData("call", [txs])
 
     const res = await wallet.sendTransaction({
-        from: from,
         to: EVMPP,
         data: data,
         accessList: accessList,
@@ -99,29 +100,30 @@ describe('Batch Transaction', function () {
         it('Balance should be added after sending', async function () {
             const recipients = [
                 {
-                    to: "0xc233de409e6463932de0b21187855a61dbba0416",
+                    to: "0x232544a805249cCd5A81Dbb8c457F46fC24E7821",
                     value: ethers.utils.parseEther('1')
                 },
                 {
-                    to: "0xa12a9128b30ca44ef11749dffe18a6c94c9c58a6",
+                    to: "0x202359E874C243012710Bd5e61db43b1f3F5c02c",
                     value: ethers.utils.parseEther('2')
                 },
                 {
-                    to: "0x1234567890123456789012345678901234567890",
+                    to: "0xf36fE0A7dB833798b743819803a91C7AeDDF3c43",
                     value: ethers.utils.parseEther('3')
                 }
             ]
+            const wallet = wallets.pop();
 
-            const balance1Before = await provider.getBalance("0xc233de409e6463932de0b21187855a61dbba0416");
-            const balance2Before = await provider.getBalance("0xa12a9128b30ca44ef11749dffe18a6c94c9c58a6");
-            const balance3Before = await provider.getBalance("0x1234567890123456789012345678901234567890");
+            const balance1Before = await provider.getBalance("0x232544a805249cCd5A81Dbb8c457F46fC24E7821");
+            const balance2Before = await provider.getBalance("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
+            const balance3Before = await provider.getBalance("0xf36fE0A7dB833798b743819803a91C7AeDDF3c43");
 
-            const res = await sendBatchTx(from, recipients)
+            const res = await sendBatchTx(wallet, recipients)
             await res.wait(1)
 
-            const balance1After = await provider.getBalance("0xc233de409e6463932de0b21187855a61dbba0416");
-            const balance2After = await provider.getBalance("0xa12a9128b30ca44ef11749dffe18a6c94c9c58a6");
-            const balance3After = await provider.getBalance("0x1234567890123456789012345678901234567890");
+            const balance1After = await provider.getBalance("0x232544a805249cCd5A81Dbb8c457F46fC24E7821");
+            const balance2After = await provider.getBalance("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
+            const balance3After = await provider.getBalance("0xf36fE0A7dB833798b743819803a91C7AeDDF3c43");
 
             assert.equal(balance1After - balance1Before, ethers.utils.parseEther('1'));
             assert.equal(balance2After - balance2Before, ethers.utils.parseEther('2'));
@@ -134,6 +136,8 @@ describe('Batch Transaction', function () {
     // Approve and call
     describe('Approve and call', function () {
         it('balance must be subtracted after spending', async function () {
+            const wallet = wallets.pop();
+
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
             const thirdParty = await deploy('thirdParty.sol', wallet)
             const signerAddr = erc20.signer.address
@@ -159,7 +163,8 @@ describe('Batch Transaction', function () {
                 }
             ]
 
-            const res = await sendBatchTx(from, recipients, [{ address: erc20.address }])
+
+            const res = await sendBatchTx(wallet, recipients, [{ address: erc20.address }])
             await res.wait(1)
 
             const afterBalance = await erc20.balanceOf(signerAddr)
@@ -203,6 +208,8 @@ describe('Batch Transaction', function () {
     // High Level Call and Results
     describe('High Level Call and Results', function () {
         it('incorrect second return value', async function () {
+            const wallet = wallets.pop();
+
             const contractString = await deploy(`
             function returnString(string memory s) external returns (string memory) {
                 require(bytes(s).length > 0, "empty string");
@@ -374,6 +381,8 @@ describe('Batch Transaction', function () {
     describe('Test gas limit', function () {
         let contractString, contractInt, c, tx1, tx2, tx3, gas1, gas2, gas3, batchGas;
 
+        const wallet = wallets.pop();
+
         before(async function () {
             contractString = await deploy(`
             function returnString(string memory s) external returns (string memory) {
@@ -434,14 +443,14 @@ describe('Batch Transaction', function () {
 
 
         it('Batch tx must be successful', async function () {
-            const res = await sendBatchTx(from, [tx1, tx2, tx3], [], gasLimit = batchGas)
+            const res = await sendBatchTx(wallet, [tx1, tx2, tx3], [], gasLimit = batchGas)
             await res.wait(1)
         });
 
 
         it('Batch Tx must be failed.', async function () {
             try {
-                const res = await sendBatchTx(from, [tx1, tx2, tx3], [], gasLimit = batchGas.sub(1))
+                const res = await sendBatchTx(wallet, [tx1, tx2, tx3], [], gasLimit = batchGas.sub(1))
                 await res.wait(1)
                 assert(false)
             } catch (err) {

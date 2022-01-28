@@ -101,7 +101,7 @@ describe('Transfer logs', function () {
         });
 
 
-        it('contract reciept and send eth logs must be 2', function () {
+        it('contract receipt and send eth logs must be 2', function () {
             assert.equal(receipt.logs?.length, 2)
         });
 
