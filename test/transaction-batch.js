@@ -4,7 +4,7 @@ const { deploy } = require('../lib/solc_util')
 
 const { parseReturnedDataWithLogs } = require('../lib/parse_util')
 const { getWallets } = require('../lib/accounts')
-
+const { fundAccounts } = require('../lib/accounts')
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
 const wallet = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
@@ -15,9 +15,10 @@ const callLogsAccessList = [{
     storageKeys: ["0x5555555555555555555555555555555555555555555555555555555555555555"],
 }]
 
+var assert = require('assert');
+
 var wallets = getWallets(provider);
 
-var assert = require('assert');
 
 const result = compile(`
     struct Tx {
@@ -31,6 +32,7 @@ const result = compile(`
 let iface = new ethers.utils.Interface(result.abi)
 
 async function sendBatchTx(wallet, recipients, accessList = [], gasLimit = null) {
+
     const txs = recipients.map(function (recipient) {
         if (!recipient.data) {
             recipient.data = '0x'
@@ -95,7 +97,14 @@ async function estimateBatchTxGas(from, recipients) {
 }
 
 
+before(async () => {
+    await fundAccounts(wallet, wallets, "40000", provider);
+})
+
+
+
 describe('Batch Transaction', function () {
+
     describe('Multisend', function () {
         it('Balance should be added after sending', async function () {
             const recipients = [
@@ -381,9 +390,10 @@ describe('Batch Transaction', function () {
     describe('Test gas limit', function () {
         let contractString, contractInt, c, tx1, tx2, tx3, gas1, gas2, gas3, batchGas;
 
-        const wallet = wallets.pop();
 
         before(async function () {
+            const wallet = wallets.pop();
+
             contractString = await deploy(`
             function returnString(string memory s) external returns (string memory) {
                 require(bytes(s).length > 0, "empty string");
@@ -443,6 +453,7 @@ describe('Batch Transaction', function () {
 
 
         it('Batch tx must be successful', async function () {
+            const wallet = wallets.pop();
             const res = await sendBatchTx(wallet, [tx1, tx2, tx3], [], gasLimit = batchGas)
             await res.wait(1)
         });
@@ -450,6 +461,7 @@ describe('Batch Transaction', function () {
 
         it('Batch Tx must be failed.', async function () {
             try {
+                const wallet = wallets.pop();
                 const res = await sendBatchTx(wallet, [tx1, tx2, tx3], [], gasLimit = batchGas.sub(1))
                 await res.wait(1)
                 assert(false)
