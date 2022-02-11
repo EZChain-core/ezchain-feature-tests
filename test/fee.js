@@ -42,6 +42,7 @@ describe('Fee Payer', function () {
             function call(
                 address to,
                 bytes calldata data,
+                uint256 nonce,
                 uint256 r,      // signature V
                 uint256 s,      // signature R
                 uint256 v       // signature S
@@ -55,6 +56,7 @@ describe('Fee Payer', function () {
         const res = await c.call(
             t.to,
             t.data,
+            nonce,
             0,
             t.v, t.r, t.s, {
                 gasPrice,
