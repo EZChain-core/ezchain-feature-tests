@@ -6,7 +6,7 @@ const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
 const wallet = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
 
-describe('VDF', function () {
+describe('VDF raw', function () {
     let vdf
 
     before(async function () {
@@ -142,3 +142,50 @@ describe('VDF', function () {
     });
 
 });
+
+describe('VDF with params', function () {
+    let vdf
+    before(async function () {
+        vdf = await deploy(`function verify(
+            bytes32 seed,
+            uint64 bitSize,
+            uint64 iteration,
+            bytes calldata output
+        ) external returns (bool valid) {
+            bytes memory input = abi.encodePacked(seed, bitSize, iteration, output);
+            uint len = input.length;
+            uint success;
+            assembly {
+                // call ecmul precompile
+                success := call(
+                    not(0),
+                    0xF1,               // vdfVerify pre-compiled
+                    0,                  // ETH value
+                    add(input, 0x20),   // skip the first word, reserved for input length
+                    len,
+                    0x00,               // scratch space
+                    0x20
+                )
+                valid := mload(0x00)    // copy result from scrach space to return variable
+            }
+            if (success == 0) {
+                revert("invalid VDF input");
+            }
+        }`, wallet)
+    });
+
+    it('send with params', async function () {
+        const res = await vdf.verify(
+            '0x55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611',
+            2048,
+            4096,
+            '0x00368c942bc4404bd3502cc8d1f0d879b8a1f0cb919984f2e94ac8b4454a9dec9de49230b6ce17a18acd108eb6951c1d1de487e2aae133fb60dd5a1dead4d54d2955a2c7a4304dc40b1f086d95a4ede4af479d63eeafc58d64634e8fa546ed648ba1bf64904bd4ea9ea7e00a5aeba5bba62181199a8acd460081ccfcd509838c6b0022da838618d56aef3dc370b93fc5b5194d9da6ffde0057d558f6894eb692215604012beebd5067dda2e9853bd95d1ebf3df177038ae3fa99aeafe13969b5f3a208593124b48a9e57fc84858ce392bf8e22fc5e538e31b7959dc22494bd31949b3e967eb2f493792eca07fd9aed9aa9055d0b825d758ed5dfafd2d78de4b0ede10013f6f3b876ded2c5e381a27485400b0c3c8b6651f08b225123773d6928a5a99c62236969550ff083662270e0b5325dfc47bd5cf36a381e2250c7acb2fe17f999e9d22e9e3d57d2b33c6754ff45663344dc55f5d3c9f514e0da5fd78292cb4cb48e0d549dc556869fb202d77dddcb7dfbe480702ef640004cc3305d6ee7064d8dffed6ecbce632ffee55712f681246065507a6c798619730672aca544e9144b658acce873a882454e31f6fa0d38912e4fe3631381460b304976306e4f37e3c80a39807f66f63641581f059884d3cf0b4d1aff981fee64366e2c8a33bd84289ddf23223ee749e6f7dd5f7346b50b1ba15e0ea73c8219e3b8ef9528917affa2a8b6e5',
+        )
+        assert(res != null, 'rpc response')
+        const rec = await res.wait(1)
+        assert.equal(rec?.status, 1, 'receipt status')
+        assert.equal(rec?.gasUsed?.toString(), '5292795', 'used gas')
+    });
+
+});
+
