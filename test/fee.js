@@ -299,4 +299,121 @@ describe('Fee Payer', function () {
 
     });
 
+
+    describe('Batch Tx', function () {
+        let chainId, gasPrice;
+        const batchTx = compile(`
+        struct Tx {
+            address to;
+            bytes  data;
+            uint256 value;	// ether value to transfer
+        }
+        function call(Tx[] calldata txs) external returns (bytes[] memory results) {}
+    `)
+        let iface = new ethers.utils.Interface(batchTx.abi)
+
+
+        const txs = [
+            {
+                to: '0x232544a805249cCd5A81Dbb8c457F46fC24E7821',
+                value: ethers.utils.parseEther('1'),
+                data: ethers.utils.arrayify('0x')
+            },
+            {
+                to: '0x202359E874C243012710Bd5e61db43b1f3F5c02c',
+                value: ethers.utils.parseEther('2'),
+                data: ethers.utils.arrayify('0x')
+            },
+            {
+                to: '0xf36fE0A7dB833798b743819803a91C7AeDDF3c43',
+                value: ethers.utils.parseEther('3'),
+                data: ethers.utils.arrayify('0x')
+            }
+        ]
+
+        before(async function () {
+            chainId = (await provider.getNetwork()).chainId
+            gasPrice = await provider.getGasPrice()
+        });
+
+        it('nonce', async function () {
+            const wallet = wallets.pop();
+            const nonce = await nocoin.getTransactionCount('pending')
+
+            const tx = {
+                chainId,
+                to: EVMPP,
+                gasLimit: 21000,
+                gasPrice,
+                nonce,
+                data: iface.encodeFunctionData("call", [txs])
+            }
+
+            const rawSignedTx = await nocoin.signTransaction(tx)
+
+            const walletNonce = await wallet.getTransactionCount('pending')
+            const c = new ethers.Contract(EVMPP, result.abi, wallet)
+            const t = ethers.utils.parseTransaction(rawSignedTx)
+
+            const res = await c.call(
+                t.to,
+                t.data,
+                nonce,
+                t.gasLimit,
+                t.v, t.r, t.s, {
+                gasPrice: gasPrice,
+                value: ethers.utils.parseEther('30')
+            },
+            )
+            receipt = await res.wait(1);
+
+            assert.equal(await wallet.getTransactionCount('pending'), walletNonce + 1, "fee payer nonce must be increased")
+            assert.equal(await nocoin.getTransactionCount('pending'), nonce + 1, "fee payee nonce must be increased")
+        });
+
+
+
+        it('balance', async function () {
+            const wallet = wallets.pop();
+            const nonce = await nocoin.getTransactionCount('pending')
+
+            const tx = {
+                chainId,
+                to: EVMPP,
+                gasLimit: 21000,
+                gasPrice,
+                nonce,
+                data: iface.encodeFunctionData("call", [txs])
+            }
+
+            const rawSignedTx = await nocoin.signTransaction(tx)
+            const c = new ethers.Contract(EVMPP, result.abi, wallet)
+            const t = ethers.utils.parseTransaction(rawSignedTx)
+
+            const balance1Before = await provider.getBalance("0x232544a805249cCd5A81Dbb8c457F46fC24E7821");
+            const balance2Before = await provider.getBalance("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
+            const balance3Before = await provider.getBalance("0xf36fE0A7dB833798b743819803a91C7AeDDF3c43");
+
+            const res = await c.call(
+                t.to,
+                t.data,
+                nonce,
+                t.gasLimit,
+                t.v, t.r, t.s, {
+                gasPrice: gasPrice,
+                value: ethers.utils.parseEther('30')
+            },
+            )
+            receipt = await res.wait(1);
+
+            const balance1After = await provider.getBalance("0x232544a805249cCd5A81Dbb8c457F46fC24E7821");
+            const balance2After = await provider.getBalance("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
+            const balance3After = await provider.getBalance("0xf36fE0A7dB833798b743819803a91C7AeDDF3c43");
+
+            assert.equal(balance1After - balance1Before, ethers.utils.parseEther('1'));
+            assert.equal(balance2After - balance2Before, ethers.utils.parseEther('2'));
+            assert.equal(balance3After - balance3Before, ethers.utils.parseEther('3'));
+        });
+
+    });
 });
