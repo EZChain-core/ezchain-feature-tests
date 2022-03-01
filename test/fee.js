@@ -17,12 +17,7 @@ const callLogsAccessList = [{
 }]
 
 
-var wallets = getWallets(provider);
-
-
-before(async () => {
-    await fundAccounts(wallet, wallets, "40000", provider);
-})
+const wallets = getWallets(provider);
 
 
 const result = compile(`
@@ -37,8 +32,11 @@ const result = compile(`
     ) payable external {}`
 )
 
-
 describe('Fee Payer', function () {
+    before(async () => {
+        await fundAccounts(wallet, wallets, "40000", provider);
+    })
+    
     it('tx fee payed', async function () {
         const wallet = wallets.pop();
         const chainId = (await provider.getNetwork()).chainId
@@ -92,7 +90,7 @@ describe('Fee Payer', function () {
         });
 
 
-        it('incorrect V', async function () {
+        it('invalid signature', async function () {
             const wallet = wallets.pop();
             nonce = await nocoin.getTransactionCount('pending')
 
@@ -109,103 +107,49 @@ describe('Fee Payer', function () {
             const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            try {
-                const res = await c.callStatic.call(
-                    t.to,
-                    t.data,
-                    nonce,
-                    t.gasLimit,
-                    86262,
-                    t.r,
-                    t.s,
-                    {
-                        gasPrice: gasPrice,
-                        value: ethers.utils.parseEther('30')
-                    },
-                )
-                assert(false)
-
-            } catch (err) {
-                assert(err?.reason == 'invalid payee signature')
-            }
-        });
-
-
-        it('incorrect R', async function () {
-            nonce = await nocoin.getTransactionCount('pending')
-            const wallet = wallets.pop();
-
-            const tx = {
-                chainId,
-                to: to,
-                gasLimit: 21000,
-                gasPrice,
+            await assert.rejects(c.callStatic.call(
+                t.to,
+                t.data,
                 nonce,
-            }
+                t.gasLimit,
+                86262,
+                t.r,
+                t.s,
+                {
+                    gasPrice: gasPrice,
+                    value: ethers.utils.parseEther('30')
+                },
+            ), { reason: 'invalid payee signature' }, 'invalid V' )
 
-            const rawSignedTx = await nocoin.signTransaction(tx)
-
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
-            const t = ethers.utils.parseTransaction(rawSignedTx)
-
-            try {
-                const res = await c.callStatic.call(
-                    t.to,
-                    t.data,
-                    nonce,
-                    t.gasLimit,
-                    t.v,
-                    '0xf7d936822d081caa6aeed1fda1abd731114f00544e5c8e5b5f35621916a7ba81',
-                    t.s,
-                    {
-                        gasPrice: gasPrice,
-                        value: ethers.utils.parseEther('30')
-                    },
-                )
-                assert(false)
-
-            } catch (err) {
-                assert(err?.reason == 'invalid payee signature')
-            }
-        });
-
-
-
-        it('incorrect S', async function () {
-            const wallet = wallets.pop();
-            nonce = await nocoin.getTransactionCount('pending')
-
-            const tx = {
-                chainId,
-                to: to,
-                gasLimit: 21000,
-                gasPrice,
+            await assert.rejects(c.callStatic.call(
+                t.to,
+                t.data,
                 nonce,
-            }
+                t.gasLimit,
+                t.v,
+                '0xf7d936822d081caa6aeed1fda1abd731114f00544e5c8e5b5f35621916a7ba81',
+                t.s,
+                {
+                    gasPrice: gasPrice,
+                    value: ethers.utils.parseEther('30')
+                },
+            ), { reason: 'invalid payee signature' }, 'invalid R' )
 
-            const rawSignedTx = await nocoin.signTransaction(tx)
+            await assert.rejects(c.callStatic.call(
+                t.to,
+                t.data,
+                nonce,
+                t.gasLimit,
+                t.v,
+                t.r,
+                '0x0000000000000000000000000000000000000000000000000000000000000000',
+                {
+                    gasPrice: gasPrice,
+                    value: ethers.utils.parseEther('30')
+                },
+            ), { reason: 'invalid payee signature' }, 'invalid S' )
 
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
-            const t = ethers.utils.parseTransaction(rawSignedTx)
-
-            try {
-                const res = await c.callStatic.call(
-                    t.to,
-                    t.data,
-                    nonce,
-                    t.gasLimit,
-                    t.v,
-                    t.r,
-                    '0x46a768e02b8acce6a293edafca20523f67f520c700fc51ca353583f03a0d8c01',
-                    {
-                        gasPrice: gasPrice,
-                        value: ethers.utils.parseEther('30')
-                    },
-                )
-                assert(false)
-            } catch (err) {
-                assert(err?.reason == 'invalid payee signature')
-            }
+            0x46a768e02b8acce6a293edafca20523f67f520c700fc51ca353583f03a0d8c01
         });
 
     });
