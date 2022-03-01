@@ -152,6 +152,40 @@ describe('Fee Payer', function () {
             0x46a768e02b8acce6a293edafca20523f67f520c700fc51ca353583f03a0d8c01
         });
 
+        it('incorrect signature', async function () {
+            const wallet = wallets.pop();
+            nonce = await nocoin.getTransactionCount('pending')
+
+            const tx = {
+                chainId,
+                to: to,
+                gasLimit: 21000,
+                gasPrice,
+                nonce,
+            }
+
+            const rawSignedTx = await nocoin.signTransaction(tx)
+
+            const c = new ethers.Contract(EVMPP, result.abi, wallet)
+            const t = ethers.utils.parseTransaction(rawSignedTx)
+
+            await c.call(
+                t.to,
+                t.data,
+                nonce,
+                t.gasLimit,
+                t.v,
+                t.r,
+                '0x46a768e02b8acce6a293edafca20523f67f520c700fc51ca353583f03a0d8c01',
+                {
+                    gasPrice: gasPrice,
+                    value: ethers.utils.parseEther('30')
+                },
+            )
+
+            assert.equal(await nocoin.getTransactionCount('pending'), nonce, "fee payee nonce must not be increased")
+        });
+
     });
 
 
