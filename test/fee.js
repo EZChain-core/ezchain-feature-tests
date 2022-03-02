@@ -149,8 +149,6 @@ describe('Fee Payer', function () {
                     value: ethers.utils.parseEther('30')
                 },
             ), { reason: 'invalid payee signature' }, 'invalid S')
-
-            0x46a768e02b8acce6a293edafca20523f67f520c700fc51ca353583f03a0d8c01
         });
 
         it('incorrect signature', async function () {
