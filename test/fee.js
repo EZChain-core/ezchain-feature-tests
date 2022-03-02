@@ -18,7 +18,7 @@ const callLogsAccessList = [{
 }]
 
 
-const wallets = getWallets(provider);
+const wallets = getWallets('fee_payer', provider);
 
 
 const result = compile(`
@@ -40,6 +40,7 @@ describe('Fee Payer', function () {
 
     it('tx fee payed', async function () {
         const wallet = wallets.pop();
+
         const chainId = (await provider.getNetwork()).chainId
         const gasPrice = await provider.getGasPrice()
         const nonce = await nocoin.getTransactionCount('pending')
@@ -93,6 +94,7 @@ describe('Fee Payer', function () {
 
         it('invalid signature', async function () {
             const wallet = wallets.pop();
+
             nonce = await nocoin.getTransactionCount('pending')
 
             const tx = {
@@ -153,6 +155,7 @@ describe('Fee Payer', function () {
 
         it('incorrect signature', async function () {
             const wallet = wallets.pop();
+
             nonce = await nocoin.getTransactionCount('pending')
 
             const tx = {
@@ -206,7 +209,6 @@ describe('Fee Payer', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const walletNonce = await wallet.getTransactionCount('latest')
             const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
@@ -292,17 +294,17 @@ describe('Fee Payer', function () {
 
         const txs = [
             {
-                to: '0x232544a805249cCd5A81Dbb8c457F46fC24E7821',
+                to: '0x7dcA4B509c9F5296264d615147581c36db81A3f8',
                 value: ethers.utils.parseEther('1'),
                 data: ethers.utils.arrayify('0x')
             },
             {
-                to: '0x202359E874C243012710Bd5e61db43b1f3F5c02c',
+                to: '0x348145b162bE7865Dd32DADF3C2E193dc1450489',
                 value: ethers.utils.parseEther('2'),
                 data: ethers.utils.arrayify('0x')
             },
             {
-                to: '0xf36fE0A7dB833798b743819803a91C7AeDDF3c43',
+                to: '0xBEa3eF61735cb5d48112DB218eACF95bb9cA4D2C',
                 value: ethers.utils.parseEther('3'),
                 data: ethers.utils.arrayify('0x')
             }
@@ -315,6 +317,7 @@ describe('Fee Payer', function () {
 
         it('nonce', async function () {
             const wallet = wallets.pop();
+
             const nonce = await nocoin.getTransactionCount('pending')
 
             const tx = {
@@ -352,6 +355,7 @@ describe('Fee Payer', function () {
 
         it('balance', async function () {
             const wallet = wallets.pop();
+
             const nonce = await nocoin.getTransactionCount('pending')
 
             const tx = {
@@ -367,9 +371,9 @@ describe('Fee Payer', function () {
             const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            const balance1Before = await provider.getBalance("0x232544a805249cCd5A81Dbb8c457F46fC24E7821");
-            const balance2Before = await provider.getBalance("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
-            const balance3Before = await provider.getBalance("0xf36fE0A7dB833798b743819803a91C7AeDDF3c43");
+            const balance1Before = await provider.getBalance("0x7dcA4B509c9F5296264d615147581c36db81A3f8");
+            const balance2Before = await provider.getBalance("0x348145b162bE7865Dd32DADF3C2E193dc1450489");
+            const balance3Before = await provider.getBalance("0xBEa3eF61735cb5d48112DB218eACF95bb9cA4D2C");
 
             const res = await c.call(
                 t.to,
@@ -383,9 +387,9 @@ describe('Fee Payer', function () {
             )
             receipt = await res.wait(1);
 
-            const balance1After = await provider.getBalance("0x232544a805249cCd5A81Dbb8c457F46fC24E7821");
-            const balance2After = await provider.getBalance("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
-            const balance3After = await provider.getBalance("0xf36fE0A7dB833798b743819803a91C7AeDDF3c43");
+            const balance1After = await provider.getBalance("0x7dcA4B509c9F5296264d615147581c36db81A3f8");
+            const balance2After = await provider.getBalance("0x348145b162bE7865Dd32DADF3C2E193dc1450489");
+            const balance3After = await provider.getBalance("0xBEa3eF61735cb5d48112DB218eACF95bb9cA4D2C");
 
             assert.equal(balance1After - balance1Before, ethers.utils.parseEther('1'));
             assert.equal(balance2After - balance2Before, ethers.utils.parseEther('2'));
@@ -411,6 +415,7 @@ describe('Fee Payer', function () {
 
         it('transfer must be successfully', async function () {
             const wallet = wallets.pop();
+
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
             const chainId = (await provider.getNetwork()).chainId
@@ -456,6 +461,7 @@ describe('Fee Payer', function () {
 
         it('transfer must be failed', async function () {
             const wallet = wallets.pop();
+
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
             const chainId = (await provider.getNetwork()).chainId
@@ -490,6 +496,7 @@ describe('Fee Payer', function () {
 
         it('batch TX', async function () {
             const wallet = wallets.pop();
+
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
             const txs = [
