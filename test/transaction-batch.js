@@ -17,7 +17,7 @@ const callLogsAccessList = [{
 
 var assert = require('assert');
 
-var wallets = getWallets(provider);
+var wallets = getWallets('transaction_batch', provider);
 
 
 const result = compile(`
@@ -97,13 +97,10 @@ async function estimateBatchTxGas(from, recipients) {
 }
 
 
-before(async () => {
-    await fundAccounts(wallet, wallets, "40000", provider);
-})
-
-
-
 describe('Batch Transaction', function () {
+    before(async () => {
+        await fundAccounts(wallet, wallets, "40000", provider);
+    })
 
     describe('Multisend', function () {
         it('Balance should be added after sending', async function () {
