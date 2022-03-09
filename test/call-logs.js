@@ -29,9 +29,10 @@ describe('Call logs', function () {
     ];
     const factory = new ethers.ContractFactory(abi, bytecode, wallet);
 
-    let contract, iface;
+    let contract, iface, gasPrice;
 
     before(async function () {
+        gasPrice = await provider.getGasPrice()
 
         contract = await factory.deploy(ethers.utils.parseUnits("100"));
         await contract.deployTransaction.wait();
@@ -67,6 +68,26 @@ describe('Call logs', function () {
     });
 
 
+
+    it('call function and get logs with accessList - EIP1559', async function () {
+        try {
+            const res = await contract.callStatic.transfer(to, ethers.utils.parseEther("1.0"), {
+                from: from,
+                accessList: callLogsAccessList,
+                maxFeePerGas: gasPrice,
+                maxPriorityFeePerGas: gasPrice.div(100)
+            })
+            assert(false);
+        } catch (err) {
+            if (err.reason) {
+                const result = JSON.parse(err.reason)
+                assert(result.logs?.length > 0)
+            }
+        }
+    });
+
+
+
     it('call eth transfer: res must be 0x', async function () {
         const res = await provider.call({
             to: to,
@@ -83,6 +104,23 @@ describe('Call logs', function () {
             value: ethers.utils.parseEther('1.23'),
             from: from,
             accessList: callLogsAccessList
+        });
+
+        const [signature, msg] = parseReturnedDataWithLogs(res)
+
+        assert.equal(signature.toString(), solidityErrorSignature.toString());
+
+        assert(msg.logs?.length > 0)
+    });
+
+    it('call eth transfer and get logs - EIP1559', async function () {
+        const res = await provider.call({
+            to: to,
+            value: ethers.utils.parseEther('1.23'),
+            from: from,
+            accessList: callLogsAccessList,
+            maxFeePerGas: gasPrice,
+            maxPriorityFeePerGas: gasPrice.div(100)
         });
 
         const [signature, msg] = parseReturnedDataWithLogs(res)

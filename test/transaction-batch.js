@@ -31,8 +31,9 @@ const result = compile(`
 
 let iface = new ethers.utils.Interface(result.abi)
 
-async function sendBatchTx(wallet, recipients, accessList = [], gasLimit = null) {
 
+
+async function _sendBatchTx(wallet, recipients, accessList = [], gasLimit = null, maxFeePerGas = null, maxPriorityFeePerGas = null) {
     const txs = recipients.map(function (recipient) {
         if (!recipient.data) {
             recipient.data = '0x'
@@ -43,14 +44,36 @@ async function sendBatchTx(wallet, recipients, accessList = [], gasLimit = null)
 
     const data = iface.encodeFunctionData("call", [txs])
 
-    const res = await wallet.sendTransaction({
+    var transactionRequest = {
         to: EVMPP,
         data: data,
         accessList: accessList,
-        gasLimit: gasLimit
-    })
+        gasLimit: gasLimit,
+
+    }
+    if (maxFeePerGas != null) {
+        transactionRequest = {
+            ...transactionRequest, maxFeePerGas, maxPriorityFeePerGas
+        }
+    }
+
+    const res = await wallet.sendTransaction(transactionRequest)
 
     return res
+}
+
+
+async function sendBatchTx(wallet, recipients, accessList = [], gasLimit = null) {
+    return _sendBatchTx(wallet, recipients, accessList, gasLimit = gasLimit, maxFeePerGas = null, maxPriorityFeePerGas = null)
+}
+
+
+async function sendBatchTxEIP1559(wallet, recipients, accessList = [], gasLimit = null) {
+    const gasPrice = await provider.getGasPrice()
+
+    return _sendBatchTx(wallet, recipients, accessList, gasLimit = gasLimit,
+        maxFeePerGas = gasPrice, maxPriorityFeePerGas = gasPrice.div(100)
+    )
 }
 
 
@@ -133,6 +156,43 @@ describe('Batch Transaction', function () {
             const balance1After = await provider.getBalance("0x232544a805249cCd5A81Dbb8c457F46fC24E7821");
             const balance2After = await provider.getBalance("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
             const balance3After = await provider.getBalance("0xf36fE0A7dB833798b743819803a91C7AeDDF3c43");
+
+            assert.equal(balance1After - balance1Before, ethers.utils.parseEther('1'));
+            assert.equal(balance2After - balance2Before, ethers.utils.parseEther('2'));
+            assert.equal(balance3After - balance3Before, ethers.utils.parseEther('3'));
+        });
+
+    });
+
+
+    describe('Multisend - EIP1559', function () {
+        it('Balance should be added after sending', async function () {
+            const recipients = [
+                {
+                    to: "0xdb6Ce2a1A0d2430706C5660024a8100064a3756B",
+                    value: ethers.utils.parseEther('1')
+                },
+                {
+                    to: "0x3867F98D5E906f30188D3F0f5De21C10104C9c8f",
+                    value: ethers.utils.parseEther('2')
+                },
+                {
+                    to: "0x367cF11A8b62C0703fF00CC45B75E386d49931BF",
+                    value: ethers.utils.parseEther('3')
+                }
+            ]
+            const wallet = wallets.pop();
+
+            const balance1Before = await provider.getBalance("0xdb6Ce2a1A0d2430706C5660024a8100064a3756B");
+            const balance2Before = await provider.getBalance("0x3867F98D5E906f30188D3F0f5De21C10104C9c8f");
+            const balance3Before = await provider.getBalance("0x367cF11A8b62C0703fF00CC45B75E386d49931BF");
+
+            const res = await sendBatchTxEIP1559(wallet, recipients)
+            await res.wait(1)
+
+            const balance1After = await provider.getBalance("0xdb6Ce2a1A0d2430706C5660024a8100064a3756B");
+            const balance2After = await provider.getBalance("0x3867F98D5E906f30188D3F0f5De21C10104C9c8f");
+            const balance3After = await provider.getBalance("0x367cF11A8b62C0703fF00CC45B75E386d49931BF");
 
             assert.equal(balance1After - balance1Before, ethers.utils.parseEther('1'));
             assert.equal(balance2After - balance2Before, ethers.utils.parseEther('2'));
