@@ -86,6 +86,45 @@ describe('Transfer logs', function () {
     });
 
 
+    describe('Transfer-EIP1559', function () {
+
+        let blockNumber, receipt, gasPrice;
+
+        before(async function () {
+            gasPrice = await provider.getGasPrice()
+
+            const res = await ewoq.sendTransaction({
+                to: onetwo,
+                value: ethers.utils.parseEther('12.34'),
+                maxFeePerGas: gasPrice,
+                maxPriorityFeePerGas: gasPrice.div(100)
+            })
+
+            receipt = await res.wait(1);
+            blockNumber = receipt.blockNumber
+        });
+
+        it('getLogs (address) must found tx hash', async function () {
+            const logs = await provider.getLogs({
+                fromBlock: blockNumber - 10,
+                toBlock: blockNumber,
+                address: AddressZero,
+            })
+            assert(logs?.some(log => log.transactionHash == receipt.transactionHash));
+        });
+
+        it('getLogs (Transfer) must found tx hash', async function () {
+            const logs = await provider.getLogs({
+                fromBlock: blockNumber - 5,
+                topics: [
+                    '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+                ],
+            })
+            assert(logs?.some(log => log.transactionHash == receipt.transactionHash));
+        });
+    });
+
+
     describe('Contract call', function () {
         let contract, receipt, blockNumber;
         before(async function () {
@@ -117,5 +156,47 @@ describe('Transfer logs', function () {
 
         });
     });
+
+
+    describe('Contract call-EIP1559', function () {
+        let contract, receipt, blockNumber, gasPrice;
+        before(async function () {
+            gasPrice = await provider.getGasPrice()
+
+            contract = await deploy(`
+            function doTransfer(address payable to, uint amount) payable external {
+                to.transfer(amount);
+            }
+        `, ewoq)
+
+            const res = await contract.doTransfer(AddressZero, ethers.utils.parseEther('1.23'), {
+                value: ethers.utils.parseEther('2.34'),
+                maxFeePerGas: gasPrice,
+                maxPriorityFeePerGas: gasPrice.div(100)
+            })
+            receipt = await res.wait(1)
+            blockNumber = receipt.blockNumber
+        });
+
+
+        it('contract receipt and send eth logs must be 2', function () {
+            assert.equal(receipt.logs?.length, 2)
+        });
+
+
+        it('getLogs (address) <= 2', async function () {
+            const logs = await provider.getLogs({
+                fromBlock: blockNumber - 5,
+                topics: [
+                    '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+                ],
+            })
+            assert(logs?.filter(log => log.transactionHash == receipt.transactionHash)?.length >= 2)
+
+        });
+    });
+
+
+
 });
 
