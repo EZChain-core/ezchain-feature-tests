@@ -1,25 +1,14 @@
 const { ethers } = require('ethers');
 const assert = require('assert');
 const { compile } = require('../lib/solc_util')
-const { getWallets } = require('../lib/accounts')
-const { fundAccounts } = require('../lib/accounts')
+const { getWallet } = require('../lib/accounts')
 const { deploy } = require('../lib/solc_util')
 
 
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 500 })
-const wallet = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
 const nocoin = new ethers.Wallet.createRandom().connect(provider)
-const from = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
 const EVMPP = "0x5555555555555555555555555555555555555555"
-const callLogsAccessList = [{
-    address: "0x5555555555555555555555555555555555555555",
-    storageKeys: ["0x5555555555555555555555555555555555555555555555555555555555555555"],
-}]
-
-
-const wallets = getWallets('fee_payer', provider);
-
 
 const result = compile(`
     function call(
@@ -34,13 +23,12 @@ const result = compile(`
 )
 
 describe('Fee Payer', function () {
+    let wallet
     before(async () => {
-        await fundAccounts(wallet, wallets, "40000", provider);
+        wallet = await getWallet(__filename, provider)
     })
 
     it('tx fee payed', async function () {
-        const wallet = wallets.pop();
-
         const chainId = (await provider.getNetwork()).chainId
         const gasPrice = await provider.getGasPrice()
         const nonce = await nocoin.getTransactionCount('pending')
@@ -92,8 +80,6 @@ describe('Fee Payer', function () {
 
 
         it('invalid signature', async function () {
-            const wallet = wallets.pop();
-
             nonce = await nocoin.getTransactionCount('pending')
 
             const tx = {
@@ -165,8 +151,6 @@ describe('Fee Payer', function () {
         });
 
         it('incorrect signature', async function () {
-            const wallet = wallets.pop();
-
             nonce = await nocoin.getTransactionCount('pending')
 
             const tx = {
@@ -204,8 +188,6 @@ describe('Fee Payer', function () {
 
     describe('balance', function () {
         it('payee balance must be unchanged', async function () {
-            const wallet = wallets.pop();
-
             const chainId = (await provider.getNetwork()).chainId
             const gasPrice = await provider.getGasPrice()
             const nonce = await nocoin.getTransactionCount('pending')
@@ -246,8 +228,6 @@ describe('Fee Payer', function () {
 
 
         it('payer balance must be decreased', async function () {
-            const wallet = wallets.pop();
-
             const chainId = (await provider.getNetwork()).chainId
             const gasPrice = await provider.getGasPrice()
             const nonce = await nocoin.getTransactionCount('pending')
@@ -327,8 +307,6 @@ describe('Fee Payer', function () {
         });
 
         it('nonce', async function () {
-            const wallet = wallets.pop();
-
             const nonce = await nocoin.getTransactionCount('pending')
 
             const tx = {
@@ -365,8 +343,6 @@ describe('Fee Payer', function () {
 
 
         it('balance', async function () {
-            const wallet = wallets.pop();
-
             const nonce = await nocoin.getTransactionCount('pending')
 
             const tx = {
@@ -425,8 +401,6 @@ describe('Fee Payer', function () {
 
 
         it('transfer must be successfully', async function () {
-            const wallet = wallets.pop();
-
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
             const chainId = (await provider.getNetwork()).chainId
@@ -471,8 +445,6 @@ describe('Fee Payer', function () {
 
 
         it('transfer must be failed', async function () {
-            const wallet = wallets.pop();
-
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
             const chainId = (await provider.getNetwork()).chainId
@@ -506,8 +478,6 @@ describe('Fee Payer', function () {
 
 
         it('batch TX', async function () {
-            const wallet = wallets.pop();
-
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
             const txs = [
