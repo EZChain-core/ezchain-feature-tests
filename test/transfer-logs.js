@@ -1,24 +1,25 @@
 const { ethers } = require('ethers');
 const { AddressZero } = ethers.constants
 const { deploy } = require('../lib/solc_util')
+const { getWallet } = require('../lib/accounts')
 
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
-const ewoq = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
 const onetwo = '0x1234567890123456789012345678901234567890'
 var assert = require('assert');
 
 
-
-
 describe('Transfer logs', function () {
+    let wallet
+    before(async () => {
+        wallet = await getWallet(__filename, provider)
+    })
 
     describe('Transfer', function () {
-
         let blockNumber, receipt;
 
         before(async function () {
-            const res = await ewoq.sendTransaction({
+            const res = await wallet.sendTransaction({
                 to: onetwo,
                 value: ethers.utils.parseEther('12.34'),
             })
@@ -57,7 +58,7 @@ describe('Transfer logs', function () {
                 fromBlock: blockNumber - 15,
                 topics: [
                     null,
-                    ethers.utils.hexZeroPad(ewoq.address, 32),
+                    ethers.utils.hexZeroPad(wallet.address, 32),
                 ],
             })
             assert(logs?.some(log => log.transactionHash == receipt.transactionHash));
@@ -88,12 +89,13 @@ describe('Transfer logs', function () {
 
     describe('Contract call', function () {
         let contract, receipt, blockNumber;
+
         before(async function () {
             contract = await deploy(`
             function doTransfer(address payable to, uint amount) payable external {
                 to.transfer(amount);
             }
-        `, ewoq)
+        `, wallet)
 
             const res = await contract.doTransfer(AddressZero, ethers.utils.parseEther('1.23'), { value: ethers.utils.parseEther('2.34') })
             receipt = await res.wait(1)

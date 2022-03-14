@@ -3,11 +3,9 @@ const { compile } = require('../lib/solc_util')
 const { deploy } = require('../lib/solc_util')
 
 const { parseReturnedDataWithLogs } = require('../lib/parse_util')
-const { getWallets } = require('../lib/accounts')
-const { fundAccounts } = require('../lib/accounts')
+const { getWallet } = require('../lib/accounts')
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
-const wallet = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
 const from = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
 const EVMPP = "0x5555555555555555555555555555555555555555"
 const callLogsAccessList = [{
@@ -16,9 +14,6 @@ const callLogsAccessList = [{
 }]
 
 var assert = require('assert');
-
-var wallets = getWallets(provider);
-
 
 const result = compile(`
     struct Tx {
@@ -97,13 +92,11 @@ async function estimateBatchTxGas(from, recipients) {
 }
 
 
-before(async () => {
-    await fundAccounts(wallet, wallets, "40000", provider);
-})
-
-
-
 describe('Batch Transaction', function () {
+    let wallet
+    before(async () => {
+        wallet = await getWallet(__filename, provider)
+    })
 
     describe('Multisend', function () {
         it('Balance should be added after sending', async function () {
@@ -121,7 +114,6 @@ describe('Batch Transaction', function () {
                     value: ethers.utils.parseEther('3')
                 }
             ]
-            const wallet = wallets.pop();
 
             const balance1Before = await provider.getBalance("0x232544a805249cCd5A81Dbb8c457F46fC24E7821");
             const balance2Before = await provider.getBalance("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
@@ -145,8 +137,6 @@ describe('Batch Transaction', function () {
     // Approve and call
     describe('Approve and call', function () {
         it('balance must be subtracted after spending', async function () {
-            const wallet = wallets.pop();
-
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
             const thirdParty = await deploy('thirdParty.sol', wallet)
             const signerAddr = erc20.signer.address
@@ -217,8 +207,6 @@ describe('Batch Transaction', function () {
     // High Level Call and Results
     describe('High Level Call and Results', function () {
         it('incorrect second return value', async function () {
-            const wallet = wallets.pop();
-
             const contractString = await deploy(`
             function returnString(string memory s) external returns (string memory) {
                 require(bytes(s).length > 0, "empty string");
@@ -392,8 +380,6 @@ describe('Batch Transaction', function () {
 
 
         before(async function () {
-            const wallet = wallets.pop();
-
             contractString = await deploy(`
             function returnString(string memory s) external returns (string memory) {
                 require(bytes(s).length > 0, "empty string");
@@ -453,7 +439,6 @@ describe('Batch Transaction', function () {
 
 
         it('Batch tx must be successful', async function () {
-            const wallet = wallets.pop();
             const res = await sendBatchTx(wallet, [tx1, tx2, tx3], [], gasLimit = batchGas)
             await res.wait(1)
         });
@@ -461,7 +446,6 @@ describe('Batch Transaction', function () {
 
         it('Batch Tx must be failed.', async function () {
             try {
-                const wallet = wallets.pop();
                 const res = await sendBatchTx(wallet, [tx1, tx2, tx3], [], gasLimit = batchGas.sub(1))
                 await res.wait(1)
                 assert(false)
