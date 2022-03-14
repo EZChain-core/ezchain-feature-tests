@@ -1,21 +1,20 @@
 const assert = require('assert');
 const { ethers } = require('ethers');
 const { deploy } = require('../lib/solc_util');
-const { getWallets } = require('../lib/accounts')
-const { fundAccounts } = require('../lib/accounts')
+const { getWallet } = require('../lib/accounts')
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 6000 })
-const wallet = new ethers.Wallet("0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027", provider)
 
-
-var wallets = getWallets('vdf', provider);
+let wallet
 
 describe('VDF raw', function () {
+    before(async () => {
+        wallet = await getWallet(__filename, provider)
+    })
+
     let vdf
 
     before(async function () {
-        await fundAccounts(wallet, wallets, "40000", provider);
-
         vdf = await deploy(`
             function verify(bytes memory input) external returns (bool valid) {
                 uint len = input.length;
@@ -37,7 +36,7 @@ describe('VDF raw', function () {
                     revert("invalid VDF input");
                 }
             }
-        `, wallets.pop())
+        `, wallet)
     });
 
     it('invalid missing everything', async function () {
@@ -177,7 +176,7 @@ describe('VDF with params', function () {
             if (success == 0) {
                 revert("invalid VDF input");
             }
-        }`, wallets.pop())
+        }`, wallet)
     });
 
     it('send with params', async function () {
@@ -194,4 +193,3 @@ describe('VDF with params', function () {
     });
 
 });
-
