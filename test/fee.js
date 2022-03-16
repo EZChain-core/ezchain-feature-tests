@@ -220,84 +220,43 @@ describe('Fee Payer', function () {
     });
 
 
-    describe('balance', function () {
-        it('payee balance must be unchanged', async function () {
-            const [nonce, balanceBefore] = await Promise.all([
-                nocoin.getTransactionCount('pending'),
-                provider.getBalance(nocoin.address),
-            ])
+    it('balance change', async function () {
+        const [nonce, balanceBefore] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+            provider.getBalance(nocoin.address),
+        ])
 
-            const tx = {
-                chainId,
-                to: dummy.address,  
-                gasLimit: 21000,
-                gasPrice,
-                nonce,
-            }
+        const tx = {
+            chainId,
+            to: dummy.address,  
+            gasLimit: 21000,
+            gasPrice,
+            nonce,
+        }
 
-            const rawSignedTx = await nocoin.signTransaction(tx)
+        const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const t = ethers.utils.parseTransaction(rawSignedTx)
+        const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            const res = await c.call(
-                t.to,
-                t.data,
-                nonce,
-                t.gasLimit,
-                t.r,
-                t.r,
-                t.s,
-                {
-                    gasPrice: gasPrice,
-                    value: ethers.utils.parseEther('30')
-                },
-            )
+        const res = await c.call(
+            t.to,
+            t.data,
+            nonce,
+            t.gasLimit,
+            t.r,
+            t.r,
+            t.s,
+            {
+                gasPrice: gasPrice,
+                value: ethers.utils.parseEther('30')
+            },
+        )
 
-            receipt = await res.wait(1);
+        receipt = await res.wait(1);
 
-            const balanceAfter = await provider.getBalance(await nocoin.getAddress());
-            assert(balanceBefore.eq(balanceAfter), "payee balance must be unchanged")
-        });
-
-
-        it('payer balance must be decreased', async function () {
-            const [nonce, balanceBefore] = await Promise.all([
-                nocoin.getTransactionCount('pending'),
-                provider.getBalance(wallet.address),
-            ])
-    
-            const tx = {
-                chainId,
-                to: dummy.address,  
-                gasLimit: 21000,
-                gasPrice,
-                nonce,
-            }
-
-            const rawSignedTx = await nocoin.signTransaction(tx)
-
-            const t = ethers.utils.parseTransaction(rawSignedTx)
-
-            const res = await c.call(
-                t.to,
-                t.data,
-                nonce,
-                t.gasLimit,
-                t.r,
-                t.r,
-                t.s,
-                {
-                    gasPrice: gasPrice,
-                    value: ethers.utils.parseEther('30')
-                },
-            )
-
-            receipt = await res.wait(1);
-            const balanceAfter = await provider.getBalance(await wallet.getAddress());
-
-            assert(balanceBefore.gt(balanceAfter), "payer balance must be decreased")
-        });
-
+        const balanceAfter = await provider.getBalance(await nocoin.getAddress());
+        assert(balanceBefore.eq(balanceAfter), "payee balance must be unchanged")
+        assert(balanceBefore.sub(ethers.utils.parseEther('30')).lt(balanceAfter), "payer balance must be decreased")
     });
 
 
