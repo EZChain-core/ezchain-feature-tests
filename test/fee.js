@@ -81,6 +81,46 @@ describe('Fee Payer', function () {
 
         assert.equal(a, walletNonce + 1, "fee payer nonce must be increased")
         assert.equal(b, nonce + 1, "fee payee nonce must be increased")
+
+        await assert.rejects(c.call(
+            t.to,
+            t.data,
+            t.nonce,
+            t.gasLimit,
+            t.v, t.r, t.s, {
+                gasPrice,
+                value: ethers.utils.parseEther('30')
+            },
+        ), { reason: 'invalid payee nonce' }, 'payee tx replayed' )
+    });
+
+
+    it('invalid payee nonce', async function () {
+        const [nonce] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+        ])
+
+        const tx = {
+            chainId,
+            to: dummy.address,  
+            gasLimit: 21000,
+            gasPrice,
+            nonce: nonce+1,
+        }
+
+        const rawSignedTx = await nocoin.signTransaction(tx)
+        const t = ethers.utils.parseTransaction(rawSignedTx)
+
+        await assert.rejects(c.call(
+            t.to,
+            t.data,
+            t.nonce,
+            t.gasLimit,
+            t.v, t.r, t.s, {
+                gasPrice: gasPrice,
+                value: ethers.utils.parseEther('30')
+            },
+        ), { reason: 'invalid payee nonce' })
     });
 
 
@@ -323,6 +363,18 @@ describe('Fee Payer', function () {
 
             assert.equal(await wallet.getTransactionCount('pending'), walletNonce + 1, "fee payer nonce must be increased")
             assert.equal(await nocoin.getTransactionCount('pending'), nonce + 1, "fee payee nonce must be increased")
+
+            await assert.rejects(c.call(
+                t.to,
+                t.data,
+                nonce,
+                t.gasLimit,
+                t.v, t.r, t.s,
+                {
+                    gasPrice,
+                    value: ethers.utils.parseEther('30')
+                },
+            ), { reason: 'invalid payee nonce' }, 'payee replay protection')
         });
 
 
