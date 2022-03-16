@@ -6,8 +6,9 @@ const { deploy } = require('../lib/solc_util')
 
 
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
-const provider = new ethers.providers.JsonRpcProvider({ url: RPC, timeout: 500 })
+const provider = new ethers.providers.JsonRpcProvider(RPC)
 const nocoin = new ethers.Wallet.createRandom().connect(provider)
+const dummy = new ethers.Wallet.createRandom()
 const EVMPP = "0x5555555555555555555555555555555555555555"
 
 const result = compile(`
@@ -24,18 +25,29 @@ const result = compile(`
 
 describe('Fee Payer', function () {
     let wallet
+    let c
+    let chainId
+    let gasPrice
     before(async () => {
-        wallet = await getWallet(__filename, provider)
+        [wallet, {chainId}, gasPrice] = await Promise.all([
+            getWallet(__filename, provider),
+            provider.getNetwork(),
+            provider.getGasPrice(),
+        ])
+        // make sure the gasPrice is more than sufficient for any network fluctuation
+        gasPrice = gasPrice.mul(4)
+        c = new ethers.Contract(EVMPP, result.abi, wallet)
     })
 
     it('tx fee payed', async function () {
-        const chainId = (await provider.getNetwork()).chainId
-        const gasPrice = await provider.getGasPrice()
-        const nonce = await nocoin.getTransactionCount('pending')
+        const [nonce, walletNonce] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+            wallet.getTransactionCount('pending'),
+        ])
 
         const tx = {
             chainId,
-            to: '0x1234567890123456789012345678901234567890',   // dummy address
+            to: dummy.address,  
             gasLimit: 21000,
             gasPrice,
             nonce,
@@ -48,8 +60,6 @@ describe('Fee Payer', function () {
             { reason: 'insufficient funds for intrinsic transaction cost' },
         )
 
-        const walletNonce = await wallet.getTransactionCount('pending')
-        const c = new ethers.Contract(EVMPP, result.abi, wallet)
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
         const res = await c.call(
@@ -58,26 +68,24 @@ describe('Fee Payer', function () {
             nonce,
             t.gasLimit,
             t.v, t.r, t.s, {
-            gasPrice: gasPrice,
-            value: ethers.utils.parseEther('30')
-        },
+                gasPrice: gasPrice,
+                value: ethers.utils.parseEther('30')
+            },
         )
-        receipt = await res.wait(1);
+        await res.wait(1);
 
-        assert.equal(await wallet.getTransactionCount('pending'), walletNonce + 1, "fee payer nonce must be increased")
-        assert.equal(await nocoin.getTransactionCount('pending'), nonce + 1, "fee payee nonce must be increased")
+        const [a, b] = await Promise.all([
+            wallet.getTransactionCount('pending'),
+            nocoin.getTransactionCount('pending'),
+        ])
+
+        assert.equal(a, walletNonce + 1, "fee payer nonce must be increased")
+        assert.equal(b, nonce + 1, "fee payee nonce must be increased")
     });
 
 
     describe('incorrect payee signature', function () {
-        let tx, chainId, gasPrice;
-        const to = '0x1234567890123456789012345678901234567890' // dummy address
-
-        before(async function () {
-            gasPrice = await provider.getGasPrice()
-            chainId = (await provider.getNetwork()).chainId
-        });
-
+        const to = dummy.address
 
         it('invalid signature', async function () {
             nonce = await nocoin.getTransactionCount('pending')
@@ -92,62 +100,49 @@ describe('Fee Payer', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            await c.callStatic.call(
+            await assert.rejects(c.callStatic.call(
                 t.to,
                 t.data,
                 nonce,
                 t.gasLimit,
-                86263,
+                0,
                 t.r,
                 t.s,
                 {
                     gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
-            ).then(() => {
-                // it's possible that this tx success, since the signature has random factor
-            }).catch(err => {
-                assert.equal(err?.reason, 'invalid payee signature', 'invalid V')
-            })
+            ), { reason: 'invalid payee signature' }, 'invalid V')
     
-            await c.callStatic.call(
+            await assert.rejects(c.callStatic.call(
                 t.to,
                 t.data,
                 nonce,
                 t.gasLimit,
                 t.v,
-                '0xf7d936822d081caa6aeed1fda1abd731114f00544e5c8e5b5f35621916a7ba81',
+                0,
                 t.s,
                 {
                     gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
-            ).then(() => {
-                // it's possible that this tx success, since the signature has random factor
-            }).catch(err => {
-                assert.equal(err?.reason, 'invalid payee signature', 'invalid R')
-            })
+            ), { reason: 'invalid payee signature' }, 'invalid R')
 
-            await c.callStatic.call(
+            await assert.rejects(c.callStatic.call(
                 t.to,
                 t.data,
                 nonce,
                 t.gasLimit,
                 t.v,
                 t.r,
-                '0x0000000000000000000000000000000000000000000000000000000000000000',
+                0,
                 {
                     gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
-            ).then(() => {
-                // it's possible that this tx success, since the signature has random factor
-            }).catch(err => {
-                assert.equal(err?.reason, 'invalid payee signature', 'invalid S')
-            })
+            ), { reason: 'invalid payee signature' }, 'invalid S')
         });
 
         it('incorrect signature', async function () {
@@ -163,7 +158,6 @@ describe('Fee Payer', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
             await c.call(
@@ -188,13 +182,14 @@ describe('Fee Payer', function () {
 
     describe('balance', function () {
         it('payee balance must be unchanged', async function () {
-            const chainId = (await provider.getNetwork()).chainId
-            const gasPrice = await provider.getGasPrice()
-            const nonce = await nocoin.getTransactionCount('pending')
+            const [nonce, balanceBefore] = await Promise.all([
+                nocoin.getTransactionCount('pending'),
+                provider.getBalance(nocoin.address),
+            ])
 
             const tx = {
                 chainId,
-                to: '0x1234567890123456789012345678901234567890',   // dummy address
+                to: dummy.address,  
                 gasLimit: 21000,
                 gasPrice,
                 nonce,
@@ -202,10 +197,7 @@ describe('Fee Payer', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
-
-            const balanceBefore = await provider.getBalance(await nocoin.getAddress());
 
             const res = await c.call(
                 t.to,
@@ -214,27 +206,29 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.r,
                 t.r,
-                t.s, {
-                gasPrice: gasPrice,
-                value: ethers.utils.parseEther('30')
-            },
+                t.s,
+                {
+                    gasPrice: gasPrice,
+                    value: ethers.utils.parseEther('30')
+                },
             )
 
             receipt = await res.wait(1);
-            const balanceAfter = await provider.getBalance(await nocoin.getAddress());
 
+            const balanceAfter = await provider.getBalance(await nocoin.getAddress());
             assert(balanceBefore.eq(balanceAfter), "payee balance must be unchanged")
         });
 
 
         it('payer balance must be decreased', async function () {
-            const chainId = (await provider.getNetwork()).chainId
-            const gasPrice = await provider.getGasPrice()
-            const nonce = await nocoin.getTransactionCount('pending')
-
+            const [nonce, balanceBefore] = await Promise.all([
+                nocoin.getTransactionCount('pending'),
+                provider.getBalance(wallet.address),
+            ])
+    
             const tx = {
                 chainId,
-                to: '0x1234567890123456789012345678901234567890',   // dummy address
+                to: dummy.address,  
                 gasLimit: 21000,
                 gasPrice,
                 nonce,
@@ -242,10 +236,7 @@ describe('Fee Payer', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
-
-            const balanceBefore = await provider.getBalance(await wallet.getAddress());
 
             const res = await c.call(
                 t.to,
@@ -271,15 +262,14 @@ describe('Fee Payer', function () {
 
 
     describe('Batch Tx', function () {
-        let chainId, gasPrice;
         const batchTx = compile(`
-        struct Tx {
-            address to;
-            bytes  data;
-            uint256 value;	// ether value to transfer
-        }
-        function call(Tx[] calldata txs) external returns (bytes[] memory results) {}
-    `)
+            struct Tx {
+                address to;
+                bytes  data;
+                uint256 value;	// ether value to transfer
+            }
+            function call(Tx[] calldata txs) external returns (bytes[] memory results) {}
+        `)
         let iface = new ethers.utils.Interface(batchTx.abi)
 
 
@@ -301,11 +291,6 @@ describe('Fee Payer', function () {
             }
         ]
 
-        before(async function () {
-            chainId = (await provider.getNetwork()).chainId
-            gasPrice = await provider.getGasPrice()
-        });
-
         it('nonce', async function () {
             const nonce = await nocoin.getTransactionCount('pending')
 
@@ -321,7 +306,6 @@ describe('Fee Payer', function () {
             const rawSignedTx = await nocoin.signTransaction(tx)
 
             const walletNonce = await wallet.getTransactionCount('pending')
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
             const res = await c.call(
@@ -329,10 +313,11 @@ describe('Fee Payer', function () {
                 t.data,
                 nonce,
                 t.gasLimit,
-                t.v, t.r, t.s, {
-                gasPrice: gasPrice,
-                value: ethers.utils.parseEther('30')
-            },
+                t.v, t.r, t.s,
+                {
+                    gasPrice,
+                    value: ethers.utils.parseEther('30')
+                },
             )
             receipt = await res.wait(1);
 
@@ -355,7 +340,6 @@ describe('Fee Payer', function () {
             }
 
             const rawSignedTx = await nocoin.signTransaction(tx)
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
             const balance1Before = await provider.getBalance("0x7dcA4B509c9F5296264d615147581c36db81A3f8");
@@ -367,10 +351,11 @@ describe('Fee Payer', function () {
                 t.data,
                 nonce,
                 t.gasLimit,
-                t.v, t.r, t.s, {
-                gasPrice: gasPrice,
-                value: ethers.utils.parseEther('30')
-            },
+                t.v, t.r, t.s,
+                {
+                    gasPrice,
+                    value: ethers.utils.parseEther('30')
+                },
             )
             receipt = await res.wait(1);
 
@@ -378,9 +363,9 @@ describe('Fee Payer', function () {
             const balance2After = await provider.getBalance("0x348145b162bE7865Dd32DADF3C2E193dc1450489");
             const balance3After = await provider.getBalance("0xBEa3eF61735cb5d48112DB218eACF95bb9cA4D2C");
 
-            assert.equal(balance1After - balance1Before, ethers.utils.parseEther('1'));
-            assert.equal(balance2After - balance2Before, ethers.utils.parseEther('2'));
-            assert.equal(balance3After - balance3Before, ethers.utils.parseEther('3'));
+            assert(balance1After.sub(balance1Before).eq(ethers.utils.parseEther('1')), 'balance 1');
+            assert(balance2After.sub(balance2Before).eq(ethers.utils.parseEther('2')), 'balance 2');
+            assert(balance3After.sub(balance3Before).eq(ethers.utils.parseEther('3')), 'balance 3');
         });
 
     });
@@ -403,9 +388,9 @@ describe('Fee Payer', function () {
         it('transfer must be successfully', async function () {
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
-            const chainId = (await provider.getNetwork()).chainId
-            const gasPrice = await provider.getGasPrice()
-            const nonce = await nocoin.getTransactionCount('pending')
+            const [nonce] = await Promise.all([
+                nocoin.getTransactionCount('pending'),
+            ])
 
             const r = await erc20.transfer(nocoin.address, "10")
             await r.wait(1)
@@ -423,7 +408,6 @@ describe('Fee Payer', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
             const res = await c.call(
@@ -431,9 +415,8 @@ describe('Fee Payer', function () {
                 t.data,
                 nonce,
                 t.gasLimit,
-                t.v, t.r, t.s, {
-                gasPrice: gasPrice,
-            },
+                t.v, t.r, t.s,
+                { gasPrice },
             )
 
             receipt = await res.wait(1);
@@ -447,9 +430,9 @@ describe('Fee Payer', function () {
         it('transfer must be failed', async function () {
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
-            const chainId = (await provider.getNetwork()).chainId
-            const gasPrice = await provider.getGasPrice()
-            const nonce = await nocoin.getTransactionCount('pending')
+            const [nonce] = await Promise.all([
+                nocoin.getTransactionCount('pending'),
+            ])
 
             const tx = {
                 chainId,
@@ -462,7 +445,6 @@ describe('Fee Payer', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
             await assert.rejects(c.callStatic.call(
@@ -470,9 +452,8 @@ describe('Fee Payer', function () {
                 t.data,
                 nonce,
                 t.gasLimit,
-                t.v, t.r, t.s, {
-                gasPrice: gasPrice,
-            },
+                t.v, t.r, t.s,
+                { gasPrice },
             ), { reason: "ERC20: transfer amount exceeds balance" }, "Transfer must be failed")
         });
 
@@ -498,8 +479,6 @@ describe('Fee Payer', function () {
                 }
             ]
 
-            const chainId = (await provider.getNetwork()).chainId
-            const gasPrice = await provider.getGasPrice()
             const nonce = await nocoin.getTransactionCount('pending')
 
             const r = await erc20.transfer(nocoin.address, "10")
@@ -520,7 +499,6 @@ describe('Fee Payer', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const c = new ethers.Contract(EVMPP, result.abi, wallet)
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
             const res = await c.call(
@@ -528,9 +506,8 @@ describe('Fee Payer', function () {
                 t.data,
                 nonce,
                 t.gasLimit,
-                t.v, t.r, t.s, {
-                gasPrice: gasPrice,
-            },
+                t.v, t.r, t.s,
+                { gasPrice },
             )
 
             receipt = await res.wait(1);
@@ -539,10 +516,8 @@ describe('Fee Payer', function () {
             const balance3After = await erc20.balanceOf("0xf36fE0A7dB833798b743819803a91C7AeDDF3c43");
 
             assert.equal(balanceBefore.sub(balanceAfter), 9, 'Balance must be decreased by 9')
-
             assert.equal(balance2After.sub(balance2Before), 2, 'Balance must be increased by 2');
             assert.equal(balance3After.sub(balance3Before), 3, 'Balance must be increased by 3');
-
         });
     });
 
