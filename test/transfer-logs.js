@@ -88,36 +88,91 @@ describe('Transfer logs', function () {
 
 
     describe('Contract call', function () {
-        let contract, receipt, blockNumber;
+        let contract;
 
         before(async function () {
             contract = await deploy(`
-            function doTransfer(address payable to, uint amount) payable external {
-                to.transfer(amount);
-            }
-        `, wallet)
+                function doTransfer(address payable to) payable external {
+                    to.transfer(msg.value);
+                }
 
-            const res = await contract.doTransfer(AddressZero, ethers.utils.parseEther('1.23'), { value: ethers.utils.parseEther('2.34') })
-            receipt = await res.wait(1)
-            blockNumber = receipt.blockNumber
+                function doNothing() payable external {
+                }
+            `, wallet)
         });
 
+        describe('transfer call with value', function() {
+            let receipt, blockNumber;
 
-        it('contract receipt and send eth logs must be 2', function () {
-            assert.equal(receipt.logs?.length, 2)
-        });
+            before(async function () {
+                const res = await contract.doTransfer(AddressZero, { value: 123 })
+                receipt = await res.wait(1)
+                blockNumber = receipt.blockNumber
+            });
+    
+            it('transfer log receipt', function () {
+                assert.equal(receipt.logs?.length, 2)
+            });
+    
+            it('getLogs (address) <= 2', async function () {
+                const logs = await provider.getLogs({
+                    fromBlock: blockNumber - 5,
+                    topics: [
+                        '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+                    ],
+                })
+                assert.equal(logs?.filter(log => log.transactionHash == receipt.transactionHash)?.length, 2)
+            });
+        })
 
+        describe('do nothing with value', function() {
+            let receipt, blockNumber;
 
-        it('getLogs (address) <= 2', async function () {
-            const logs = await provider.getLogs({
-                fromBlock: blockNumber - 5,
-                topics: [
-                    '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
-                ],
-            })
-            assert(logs?.filter(log => log.transactionHash == receipt.transactionHash)?.length >= 2)
+            before(async function () {
+                const res = await contract.doNothing({ value: 123 })
+                receipt = await res.wait(1)
+                blockNumber = receipt.blockNumber
+            });
+    
+            it('transfer log receipt', function () {
+                assert.equal(receipt.logs?.length, 1)
+            });
+    
+            it('getLogs (address) <= 2', async function () {
+                const logs = await provider.getLogs({
+                    fromBlock: blockNumber - 5,
+                    topics: [
+                        '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+                    ],
+                })
+                assert.equal(logs?.filter(log => log.transactionHash == receipt.transactionHash)?.length, 1)
+            });
+        })
 
-        });
+        describe('do nothing without value', function() {
+            let receipt, blockNumber;
+
+            before(async function () {
+                const res = await contract.doNothing()
+                receipt = await res.wait(1)
+                blockNumber = receipt.blockNumber
+            });
+    
+            it('transfer log receipt', function () {
+                assert.equal(receipt.logs?.length, 0)
+            });
+    
+            it('getLogs (address) <= 2', async function () {
+                const logs = await provider.getLogs({
+                    fromBlock: blockNumber - 5,
+                    topics: [
+                        '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+                    ],
+                })
+                assert.equal(logs?.filter(log => log.transactionHash == receipt.transactionHash)?.length, 0)
+            });
+        })
+
     });
 });
 
