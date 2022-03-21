@@ -91,11 +91,11 @@ describe('Fee Payer', function () {
                 gasPrice,
                 value: ethers.utils.parseEther('30')
             },
-        ), { reason: 'invalid payee nonce' }, 'payee tx replayed' )
+        ), { reason: 'payee: invalid nonce' }, 'payee tx replayed' )
     });
 
 
-    it('invalid payee nonce', async function () {
+    it('payee: invalid nonce', async function () {
         const [nonce] = await Promise.all([
             nocoin.getTransactionCount('pending'),
         ])
@@ -120,7 +120,7 @@ describe('Fee Payer', function () {
                 gasPrice: gasPrice,
                 value: ethers.utils.parseEther('30')
             },
-        ), { reason: 'invalid payee nonce' })
+        ), { reason: 'payee: invalid nonce' })
     });
 
 
@@ -333,7 +333,7 @@ describe('Fee Payer', function () {
                     gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
-            ), { reason: 'invalid payee nonce' }, 'payee replay protection')
+            ), { reason: 'payee: invalid nonce' }, 'payee replay protection')
         });
 
 
