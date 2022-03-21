@@ -374,9 +374,9 @@ describe('Fee Payer', function () {
             const balance2After = await provider.getBalance("0x348145b162bE7865Dd32DADF3C2E193dc1450489");
             const balance3After = await provider.getBalance("0xBEa3eF61735cb5d48112DB218eACF95bb9cA4D2C");
 
-            assert(balance1After.sub(balance1Before).eq(ethers.utils.parseEther('1')), 'balance 1');
-            assert(balance2After.sub(balance2Before).eq(ethers.utils.parseEther('2')), 'balance 2');
-            assert(balance3After.sub(balance3Before).eq(ethers.utils.parseEther('3')), 'balance 3');
+            assert.equal(balance1After.sub(balance1Before).toString(), ethers.utils.parseEther('1').toString(), 'balance 1');
+            assert.equal(balance2After.sub(balance2Before).toString(), ethers.utils.parseEther('2').toString(), 'balance 2');
+            assert.equal(balance3After.sub(balance3Before).toString(), ethers.utils.parseEther('3').toString(), 'balance 3');
         });
 
     });
