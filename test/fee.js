@@ -248,7 +248,8 @@ describe('Fee Payer', function () {
             t.s,
             {
                 gasPrice: gasPrice,
-                value: ethers.utils.parseEther('30')
+                value: ethers.utils.parseEther('30'),
+                gasLimit: 100000
             },
         )
 
@@ -296,7 +297,7 @@ describe('Fee Payer', function () {
             const tx = {
                 chainId,
                 to: EVMPP,
-                gasLimit: 21000,
+                gasLimit: 30000,
                 gasPrice,
                 nonce,
                 data: iface.encodeFunctionData("call", [txs])
@@ -344,7 +345,7 @@ describe('Fee Payer', function () {
             const tx = {
                 chainId,
                 to: EVMPP,
-                gasLimit: 21000,
+                gasLimit: 40000,
                 gasPrice,
                 nonce,
                 data: iface.encodeFunctionData("call", [txs])
@@ -409,7 +410,7 @@ describe('Fee Payer', function () {
             const tx = {
                 chainId,
                 to: erc20.address,
-                gasLimit: 21000,
+                gasLimit: 60000,
                 data: erc20.interface.encodeFunctionData("transfer", ["0x1234567890123456789012345678901234567890", 4]),
                 gasPrice,
                 nonce,
@@ -427,7 +428,7 @@ describe('Fee Payer', function () {
                 nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
-                { gasPrice: gasPrice, gasLimit: 1000000 },
+                { gasPrice: gasPrice },
             )
 
 
@@ -466,7 +467,7 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.v, t.r, t.s,
                 { gasPrice },
-            ), { reason: "payee: out of gas" })
+            ), { reason: "payee: gas too low" })
         });
 
 
@@ -499,7 +500,7 @@ describe('Fee Payer', function () {
             const tx = {
                 chainId,
                 to: EVMPP,
-                gasLimit: 21000,
+                gasLimit: 70000,
                 data: iface.encodeFunctionData("call", [txs]),
                 gasPrice,
                 nonce,
@@ -532,7 +533,7 @@ describe('Fee Payer', function () {
             assert.equal(balance3After.sub(balance3Before), 3, 'Balance must be increased by 3');
         });
 
-        it('Gas limit', async function () {
+        it('payee: gas too low', async function () {
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
             const [nonce] = await Promise.all([
@@ -564,7 +565,7 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.v, t.r, t.s,
                 { gasPrice },
-            ), { reason: "payee: out of gas" })
+            ), { reason: "payee: gas too low" })
         });
 
 
