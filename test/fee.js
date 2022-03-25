@@ -29,7 +29,7 @@ describe('Fee Payer', function () {
     let chainId
     let gasPrice
     before(async () => {
-        [wallet, {chainId}, gasPrice] = await Promise.all([
+        [wallet, { chainId }, gasPrice] = await Promise.all([
             getWallet(__filename, provider),
             provider.getNetwork(),
             provider.getGasPrice(),
@@ -47,7 +47,7 @@ describe('Fee Payer', function () {
 
         const tx = {
             chainId,
-            to: dummy.address,  
+            to: dummy.address,
             gasLimit: 21000,
             gasPrice,
             nonce,
@@ -68,9 +68,9 @@ describe('Fee Payer', function () {
             nonce,
             t.gasLimit,
             t.v, t.r, t.s, {
-                gasPrice: gasPrice,
-                value: ethers.utils.parseEther('30')
-            },
+            gasPrice: gasPrice,
+            value: ethers.utils.parseEther('30')
+        },
         )
         await res.wait(1);
 
@@ -82,16 +82,16 @@ describe('Fee Payer', function () {
         assert.equal(a, walletNonce + 1, "fee payer nonce must be increased")
         assert.equal(b, nonce + 1, "fee payee nonce must be increased")
 
-        await assert.rejects(c.call(
+        await assert.rejects(c.callStatic.call(
             t.to,
             t.data,
             t.nonce,
             t.gasLimit,
             t.v, t.r, t.s, {
-                gasPrice,
-                value: ethers.utils.parseEther('30')
-            },
-        ), { reason: 'payee: invalid nonce' }, 'payee tx replayed' )
+            gasPrice,
+            value: ethers.utils.parseEther('30')
+        },
+        ), { reason: 'payee: invalid nonce' }, 'payee tx replayed')
     });
 
 
@@ -102,24 +102,24 @@ describe('Fee Payer', function () {
 
         const tx = {
             chainId,
-            to: dummy.address,  
+            to: dummy.address,
             gasLimit: 21000,
             gasPrice,
-            nonce: nonce+1,
+            nonce: nonce + 1,
         }
 
         const rawSignedTx = await nocoin.signTransaction(tx)
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
-        await assert.rejects(c.call(
+        await assert.rejects(c.callStatic.call(
             t.to,
             t.data,
             t.nonce,
             t.gasLimit,
             t.v, t.r, t.s, {
-                gasPrice: gasPrice,
-                value: ethers.utils.parseEther('30')
-            },
+            gasPrice: gasPrice,
+            value: ethers.utils.parseEther('30')
+        },
         ), { reason: 'payee: invalid nonce' })
     });
 
@@ -154,8 +154,8 @@ describe('Fee Payer', function () {
                     gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
-            ), { reason: 'invalid payee signature' }, 'invalid V')
-    
+            ), { reason: 'payee: invalid signature' }, 'invalid V')
+
             await assert.rejects(c.callStatic.call(
                 t.to,
                 t.data,
@@ -168,7 +168,7 @@ describe('Fee Payer', function () {
                     gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
-            ), { reason: 'invalid payee signature' }, 'invalid R')
+            ), { reason: 'payee: invalid signature' }, 'invalid R')
 
             await assert.rejects(c.callStatic.call(
                 t.to,
@@ -182,7 +182,7 @@ describe('Fee Payer', function () {
                     gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
-            ), { reason: 'invalid payee signature' }, 'invalid S')
+            ), { reason: 'payee: invalid signature' }, 'invalid S')
         });
 
         it('incorrect signature', async function () {
@@ -228,7 +228,7 @@ describe('Fee Payer', function () {
 
         const tx = {
             chainId,
-            to: dummy.address,  
+            to: dummy.address,
             gasLimit: 21000,
             gasPrice,
             nonce,
@@ -323,7 +323,7 @@ describe('Fee Payer', function () {
             assert.equal(await wallet.getTransactionCount('pending'), walletNonce + 1, "fee payer nonce must be increased")
             assert.equal(await nocoin.getTransactionCount('pending'), nonce + 1, "fee payee nonce must be increased")
 
-            await assert.rejects(c.call(
+            await assert.rejects(c.callStatic.call(
                 t.to,
                 t.data,
                 nonce,
@@ -427,8 +427,9 @@ describe('Fee Payer', function () {
                 nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
-                { gasPrice },
+                { gasPrice: gasPrice, gasLimit: 1000000 },
             )
+
 
             receipt = await res.wait(1);
             const afterBalance = await erc20.balanceOf(nocoin.address)
@@ -465,7 +466,7 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.v, t.r, t.s,
                 { gasPrice },
-            ), { reason: "ERC20: transfer amount exceeds balance" }, "Transfer must be failed")
+            ), { reason: "payee: out of gas" })
         });
 
 
@@ -530,6 +531,44 @@ describe('Fee Payer', function () {
             assert.equal(balance2After.sub(balance2Before), 2, 'Balance must be increased by 2');
             assert.equal(balance3After.sub(balance3Before), 3, 'Balance must be increased by 3');
         });
+
+        it('Gas limit', async function () {
+            const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
+
+            const [nonce] = await Promise.all([
+                nocoin.getTransactionCount('pending'),
+            ])
+
+            const r = await erc20.transfer(nocoin.address, "10")
+            await r.wait(1)
+
+            const tx = {
+                chainId,
+                to: erc20.address,
+                gasLimit: 21000,
+                data: erc20.interface.encodeFunctionData("transfer", ["0x1234567890123456789012345678901234567890", 4]),
+                gasPrice,
+                nonce,
+            }
+
+            const beforeBalance = await erc20.balanceOf(nocoin.address)
+
+            const rawSignedTx = await nocoin.signTransaction(tx)
+
+            const t = ethers.utils.parseTransaction(rawSignedTx)
+
+            await assert.rejects(c.callStatic.call(
+                t.to,
+                t.data,
+                nonce,
+                t.gasLimit,
+                t.v, t.r, t.s,
+                { gasPrice },
+            ), { reason: "payee: out of gas" })
+        });
+
+
+
     });
 
 
