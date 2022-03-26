@@ -68,11 +68,12 @@ describe('Fee Payer', function () {
             nonce,
             t.gasLimit,
             t.v, t.r, t.s, {
-            gasPrice: gasPrice,
-            value: ethers.utils.parseEther('30')
-        },
+                gasPrice: gasPrice,
+                value: ethers.utils.parseEther('30')
+            },
         )
-        await res.wait(1);
+        const receipt = await res.wait(1);
+        assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
 
         const [a, b] = await Promise.all([
             wallet.getTransactionCount('pending'),
@@ -253,7 +254,8 @@ describe('Fee Payer', function () {
             },
         )
 
-        receipt = await res.wait(1);
+        const receipt = await res.wait(1);
+        assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
 
         const balanceAfter = await provider.getBalance(await nocoin.getAddress());
         assert(balanceBefore.eq(balanceAfter), "payee balance must be unchanged")
@@ -319,7 +321,8 @@ describe('Fee Payer', function () {
                     value: ethers.utils.parseEther('30')
                 },
             )
-            receipt = await res.wait(1);
+            const receipt = await res.wait(1);
+            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
 
             assert.equal(await wallet.getTransactionCount('pending'), walletNonce + 1, "fee payer nonce must be increased")
             assert.equal(await nocoin.getTransactionCount('pending'), nonce + 1, "fee payee nonce must be increased")
@@ -369,7 +372,8 @@ describe('Fee Payer', function () {
                     value: ethers.utils.parseEther('30')
                 },
             )
-            receipt = await res.wait(1);
+            const receipt = await res.wait(1);
+            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
 
             const balance1After = await provider.getBalance("0x7dcA4B509c9F5296264d615147581c36db81A3f8");
             const balance2After = await provider.getBalance("0x348145b162bE7865Dd32DADF3C2E193dc1450489");
@@ -431,8 +435,8 @@ describe('Fee Payer', function () {
                 { gasPrice: gasPrice },
             )
 
-
-            receipt = await res.wait(1);
+            const receipt = await res.wait(1);
+            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
             const afterBalance = await erc20.balanceOf(nocoin.address)
 
             assert.equal(beforeBalance.sub(afterBalance), 4, 'Balance must be decreased by 4')
@@ -467,7 +471,7 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.v, t.r, t.s,
                 { gasPrice },
-            ), { reason: "payee: gas too low" })
+            ), { reason: "payee: intrinsic gas too low" })
         });
 
 
@@ -495,7 +499,8 @@ describe('Fee Payer', function () {
             const nonce = await nocoin.getTransactionCount('pending')
 
             const r = await erc20.transfer(nocoin.address, "10")
-            await r.wait(1)
+            let receipt = await r.wait(1);
+            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
 
             const tx = {
                 chainId,
@@ -524,6 +529,8 @@ describe('Fee Payer', function () {
             )
 
             receipt = await res.wait(1);
+            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
+
             const balanceAfter = await erc20.balanceOf(nocoin.address)
             const balance2After = await erc20.balanceOf("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
             const balance3After = await erc20.balanceOf("0xf36fE0A7dB833798b743819803a91C7AeDDF3c43");
@@ -541,7 +548,8 @@ describe('Fee Payer', function () {
             ])
 
             const r = await erc20.transfer(nocoin.address, "10")
-            await r.wait(1)
+            const receipt = await r.wait(1);
+            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
 
             const tx = {
                 chainId,
@@ -565,7 +573,7 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.v, t.r, t.s,
                 { gasPrice },
-            ), { reason: "payee: gas too low" })
+            ), { reason: "payee: intrinsic gas too low" })
         });
 
 
