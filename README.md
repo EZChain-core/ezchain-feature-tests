@@ -1,2 +1,2 @@
 # feature-tests
-Feature tests for coreth and avalanchego
+Feature tests for coreth and ezcgo
