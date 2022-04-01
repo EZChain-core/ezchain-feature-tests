@@ -6,10 +6,10 @@
   "author": "Zergity <zergity@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "build": "cd ../ezcgo && ./scripts/build.sh",
+    "build": "cd ../ezcgo && git restore go.mod go.sum && ./scripts/build.sh",
     "test": "./node_modules/mocha/bin/mocha --timeout 20s --jobs 16 --parallel",
     "stop": "kill-port 9650",
-    "start": "../ezcgo/build/avalanchego --public-ip=0.0.0.0 --http-port=9650 --staking-port=9651 --db-dir=tmp/node1 --staking-tls-cert-file=../ezcgo/staking/local/staker1.crt --staking-tls-key-file=../ezcgo/staking/local/staker1.key --log-level=debug --http-allowed-origins='*' --network-id=local --snow-sample-size=1 --snow-quorum-size=1 --staking-enabled=false --snow-optimal-processing=1000 --index-enabled=true --http-host=0.0.0.0 > ezcgo.log 2>&1 &",
+    "start": "../ezcgo/build/avalanchego --public-ip=0.0.0.0 --http-port=9650 --staking-port=9651 --db-dir=tmp/node1 --log-level=debug --http-allowed-origins='*' --network-id=local --snow-sample-size=1 --snow-quorum-size=1 --staking-enabled=false --http-host=0.0.0.0 > ezcgo.log 2>&1 &",
     "restart": "yarn stop && yarn start",
     "log": "tail -F ezcgo.log"
   },
