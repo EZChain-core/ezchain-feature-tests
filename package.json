@@ -11,6 +11,8 @@
     "stop": "kill-port 9650",
     "start": "../ezcgo/build/avalanchego --public-ip=0.0.0.0 --http-port=9650 --staking-port=9651 --db-dir=tmp/node1 --log-level=debug --http-allowed-origins='*' --network-id=local --snow-sample-size=1 --snow-quorum-size=1 --staking-enabled=false --http-host=0.0.0.0 > ezcgo.log 2>&1 &",
     "restart": "yarn stop && yarn start",
+    "clean": "rm -rf ./tmp/",
+    "reset": "yarn stop; yarn clean; yarn build; yarn start",
     "log": "tail -F ezcgo.log"
   },
   "dependencies": {
