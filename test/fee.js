@@ -12,7 +12,7 @@ const dummy = new ethers.Wallet.createRandom()
 const EVMPP = "0x5555555555555555555555555555555555555555"
 
 const result = compile(`
-    function call(
+    function payFor(
         address to,
         bytes calldata data,
         uint256 nonce,
@@ -62,7 +62,7 @@ describe('Fee Payer', function () {
 
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
-        const res = await c.call(
+        const res = await c.payFor(
             t.to,
             t.data,
             nonce,
@@ -83,7 +83,7 @@ describe('Fee Payer', function () {
         assert.equal(a, walletNonce + 1, "fee payer nonce must be increased")
         assert.equal(b, nonce + 1, "fee payee nonce must be increased")
 
-        await assert.rejects(c.callStatic.call(
+        await assert.rejects(c.callStatic.payFor(
             t.to,
             t.data,
             t.nonce,
@@ -112,7 +112,7 @@ describe('Fee Payer', function () {
         const rawSignedTx = await nocoin.signTransaction(tx)
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
-        await assert.rejects(c.callStatic.call(
+        await assert.rejects(c.callStatic.payFor(
             t.to,
             t.data,
             t.nonce,
@@ -143,7 +143,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(c.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -157,7 +157,7 @@ describe('Fee Payer', function () {
                 },
             ), { reason: 'payee: invalid signature' }, 'invalid V')
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(c.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -171,7 +171,7 @@ describe('Fee Payer', function () {
                 },
             ), { reason: 'payee: invalid signature' }, 'invalid R')
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(c.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -201,7 +201,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            await c.call(
+            await c.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -239,7 +239,7 @@ describe('Fee Payer', function () {
 
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
-        const res = await c.call(
+        const res = await c.payFor(
             t.to,
             t.data,
             nonce,
@@ -270,7 +270,7 @@ describe('Fee Payer', function () {
                 bytes  data;
                 uint256 value;	// ether value to transfer
             }
-            function call(Tx[] calldata txs) external returns (bytes[] memory results) {}
+            function batchCall(Tx[] calldata txs) external returns (bytes[] memory results) {}
         `)
         let iface = new ethers.utils.Interface(batchTx.abi)
 
@@ -302,7 +302,7 @@ describe('Fee Payer', function () {
                 gasLimit: 30000,
                 gasPrice,
                 nonce,
-                data: iface.encodeFunctionData("call", [txs])
+                data: iface.encodeFunctionData("batchCall", [txs])
             }
 
             const rawSignedTx = await nocoin.signTransaction(tx)
@@ -310,7 +310,7 @@ describe('Fee Payer', function () {
             const walletNonce = await wallet.getTransactionCount('pending')
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            const res = await c.call(
+            const res = await c.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -327,7 +327,7 @@ describe('Fee Payer', function () {
             assert.equal(await wallet.getTransactionCount('pending'), walletNonce + 1, "fee payer nonce must be increased")
             assert.equal(await nocoin.getTransactionCount('pending'), nonce + 1, "fee payee nonce must be increased")
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(c.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -351,7 +351,7 @@ describe('Fee Payer', function () {
                 gasLimit: 40000,
                 gasPrice,
                 nonce,
-                data: iface.encodeFunctionData("call", [txs])
+                data: iface.encodeFunctionData("batchCall", [txs])
             }
 
             const rawSignedTx = await nocoin.signTransaction(tx)
@@ -361,7 +361,7 @@ describe('Fee Payer', function () {
             const balance2Before = await provider.getBalance("0x348145b162bE7865Dd32DADF3C2E193dc1450489");
             const balance3Before = await provider.getBalance("0xBEa3eF61735cb5d48112DB218eACF95bb9cA4D2C");
 
-            const res = await c.call(
+            const res = await c.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -396,7 +396,7 @@ describe('Fee Payer', function () {
             bytes  data;
             uint256 value;	// ether value to transfer
         }
-        function call(Tx[] calldata txs) external returns (bytes[] memory results) {}
+        function batchCall(Tx[] calldata txs) external returns (bytes[] memory results) {}
     `)
         let iface = new ethers.utils.Interface(batchTx.abi)
 
@@ -426,7 +426,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            const res = await c.call(
+            const res = await c.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -464,7 +464,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(c.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -506,7 +506,7 @@ describe('Fee Payer', function () {
                 chainId,
                 to: EVMPP,
                 gasLimit: 70000,
-                data: iface.encodeFunctionData("call", [txs]),
+                data: iface.encodeFunctionData("batchCall", [txs]),
                 gasPrice,
                 nonce,
             }
@@ -519,7 +519,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            const res = await c.call(
+            const res = await c.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -566,7 +566,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(c.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
