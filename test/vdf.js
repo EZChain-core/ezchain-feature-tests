@@ -41,7 +41,8 @@ describe('VDF raw', function () {
 
 
     it('invalid missing everything', async function () {
-        assert(await vdf.callStatic.verify('0x'));
+        await assert.rejects(vdf.callStatic.verify('0x'), {reason: "invalid VDF input"})
+
         const res = await vdf.verify('0x', { gasLimit: 80000 });
         await assert.rejects(res.wait(1), { reason: 'transaction failed' });
     });
@@ -52,7 +53,7 @@ describe('VDF raw', function () {
             '0000000000000800' +
             '0000000000000400';
 
-        assert(await vdf.callStatic.verify(input));
+        await assert.rejects(vdf.callStatic.verify(input), {reason: "invalid VDF input"})
 
         const res = await vdf.verify(input, { gasLimit: 80000 });
 
@@ -67,10 +68,10 @@ describe('VDF raw', function () {
             '0000000000000400' +
             '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b'
 
-        assert(await vdf.callStatic.verify(input));
+
+        await assert.rejects(vdf.callStatic.verify(input), {reason: "invalid VDF input"})
 
         const res = await vdf.verify(input, { gasLimit: 80000 });
-
         await assert.rejects(res.wait(1), { reason: 'transaction failed' });
     });
 
@@ -83,7 +84,7 @@ describe('VDF raw', function () {
             '0000000000000400' +
             '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b13';
 
-        assert(await vdf.callStatic.verify(input));
+        await assert.rejects(vdf.callStatic.verify(input), {reason: "invalid VDF input"})
 
         const res = await vdf.verify(input, { gasLimit: 80000 });
         await assert.rejects(res.wait(1), { reason: 'transaction failed' });
@@ -97,7 +98,7 @@ describe('VDF raw', function () {
             '0000000000000400' +
             '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9c';
 
-        assert(await vdf.callStatic.verify(input));
+        assert(await vdf.callStatic.verify(input))
 
         const res = await vdf.verify(input, { gasLimit: 80000 });
         await assert.rejects(res.wait(1), { reason: 'transaction failed' });
@@ -157,7 +158,7 @@ describe('VDF raw', function () {
             '0000000000000C00' +
             '00071a1bef8bc5eae408761e81e1a23e530193bc81042040f62e755a6c4a0ec559de9bedf7277f3e135f047a5486abf7ca78628a3f249df5f695a2585763f90a5a413d14e3fbd4712759b96ae92839a9b6cff2c58d15b8fe2f1d1e69e0916970d18cdbd701739c9cc33ce2a1630e8d90354d31f86ad3ec49b4608cc9c60eaea30000019f56b80b38400ced418d4a719e80a1a7cbb17033d5e6f0e59b6f07e8115697233bb0fea4d426a83e7808f85342cc9b97f1fd904fae8cb57bd145df721a895a0fe4dead8d049856eddb26116b916c7c1beeed0b81bc1a92ef2f2e9bc554c782d0027a802b160cae71f19c0b701121bbb2be1cfe6cd0e998b84d292414d5ee930027652c8d9a85876093b7ee74345c4ae0f0c1684348b43383f86501518e570732a1b2f775956e8e1cba97ec4fa069d611f7e51a4f3ac125dc5fa46cdbb565cc59073a7a1234c84b9120ac106de119415f308c9e82d29a8d05cb53a6c86c5c6c6f9a47585b822ab21df9e396cba514d5fa74a698af7fa667370edcbfc6fcf2024c000887ec327b2391cfd626ee92a3346bf8b65039516c1e4231c93d334b4bf2c66c10917b1318ea814221f808ff493c167ee2c04d1c7a8120ca50913b91a665ab15d503c5ece2ec853e82426c40ecc27d8cc38e3d1d8a766b2f0ef94fe28d118d0eabb6946b1cce7dde3d175de3d2070ff81eebe0d1a73e8fc10c5e8ff6bf02d6f3',
         )
-        assert.equal(gas.toString(), '31606', 'estimated gas')
+        assert.equal(gas.toString(), '5374856', 'estimated gas')
     });
 
 
