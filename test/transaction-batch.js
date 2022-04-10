@@ -1,6 +1,7 @@
 const { ethers } = require('ethers');
 const { compile } = require('../lib/solc_util')
 const { deploy } = require('../lib/solc_util')
+const { createEVMPP } = require('../lib/evmpp')
 
 const { parseReturnedDataWithLogs } = require('../lib/parse_util')
 const { getWallet } = require('../lib/accounts')
@@ -15,16 +16,12 @@ const callLogsAccessList = [{
 
 var assert = require('assert');
 
-const result = compile(`
-    struct Tx {
-        address to;
-        bytes  data;
-        uint256 value;	// ether value to transfer
+const evmpp = createEVMPP(provider, {
+    returns: {
+        callBatch: 'bytes[] memory results'
     }
-    function callBatch(Tx[] calldata txs) external returns (bytes[] memory results) {}
-`)
+});
 
-let iface = new ethers.utils.Interface(result.abi)
 
 async function sendBatchTx(wallet, recipients, accessList = [], gasLimit = null) {
 
@@ -35,9 +32,7 @@ async function sendBatchTx(wallet, recipients, accessList = [], gasLimit = null)
         recipient.data = ethers.utils.arrayify(recipient.data);
         return recipient;
     })
-
-    const data = iface.encodeFunctionData("callBatch", [txs])
-
+    const data = evmpp.interface.encodeFunctionData('callBatch', [txs])
     const res = await wallet.sendTransaction({
         to: EVMPP,
         data: data,
@@ -58,7 +53,7 @@ async function callBatchTx(from, recipients) {
         return recipient;
     })
 
-    const data = iface.encodeFunctionData("callBatch", [txs])
+    const data = evmpp.interface.encodeFunctionData("callBatch", [txs])
 
     const res = await provider.call({
         to: EVMPP,
@@ -80,7 +75,7 @@ async function estimateBatchTxGas(from, recipients) {
         return recipient;
     })
 
-    const data = iface.encodeFunctionData("callBatch", [txs])
+    const data = evmpp.interface.encodeFunctionData("callBatch", [txs])
 
     const res = await provider.estimateGas({
         to: EVMPP,
@@ -221,15 +216,12 @@ describe('Batch Transaction', function () {
             }
         `, wallet)
 
-            const result = compile(`
-            struct Tx {
-                address to;
-                bytes  data;
-                uint256 value;	// ether value to transfer
-            }
-            function callBatch(Tx[] calldata txs) external returns (int) {}
-        `)
-            const c = new ethers.Contract(EVMPP, result.abi, provider)
+            c = createEVMPP(provider, {
+                returns: {
+                    callBatch: 'int'
+                }
+            })
+
 
             const i = await c.callStatic.callBatch([{
                 to: contractString.address,
@@ -394,17 +386,11 @@ describe('Batch Transaction', function () {
             }
         `, wallet)
 
-
-            const result = compile(`
-            struct Tx {
-                address to;
-                bytes  data;
-                uint256 value;	// ether value to transfer
-            }
-            function callBatch(Tx[] calldata txs) external returns (int) {}
-        `)
-            c = new ethers.Contract(EVMPP, result.abi, provider)
-
+            c = createEVMPP(provider, {
+                returns: {
+                    callBatch: 'int'
+                }
+            })
 
             tx1 = {
                 to: contractString.address,
@@ -456,7 +442,7 @@ describe('Batch Transaction', function () {
 
         it('Tx must be out of gas', async function () {
             try {
-                result = await c.callStatic.callBatch([tx1, tx2, tx3], { gasLimit: batchGas.sub(1) })
+                await c.callStatic.callBatch([tx1, tx2, tx3], { gasLimit: batchGas.sub(1) })
                 assert(false)
 
             } catch (err) {

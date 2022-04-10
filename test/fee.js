@@ -9,6 +9,15 @@ const provider = new ethers.providers.JsonRpcProvider(RPC)
 const nocoin = new ethers.Wallet.createRandom().connect(provider)
 const dummy = new ethers.Wallet.createRandom()
 
+
+const EVMPP = createEVMPP(provider, {
+    returns: {
+        payFor: 'bytes[] memory results',
+        callBatch: 'bytes[] memory results'
+    },
+    
+})
+
 describe('Fee Payer', function () {
     let wallet
     let evmpp
@@ -22,7 +31,7 @@ describe('Fee Payer', function () {
         ])
         // make sure the gasPrice is more than sufficient for any network fluctuation
         gasPrice = gasPrice.mul(4)
-        evmpp = createEVMPP(wallet)
+        evmpp = EVMPP.connect(wallet);
     })
 
     it('tx fee payed', async function () {
@@ -363,6 +372,7 @@ describe('Fee Payer', function () {
 
 
     describe('ERC20', function () {
+        // let erc20, wallet;
 
         it('transfer must be successfully', async function () {
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
