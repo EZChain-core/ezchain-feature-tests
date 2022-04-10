@@ -39,157 +39,100 @@ describe('VDF raw', function () {
         `, wallet)
     });
 
-    it('Call Static: invalid missing everything', async function () {
-        valid = await vdf.callStatic.verify('0x');
-        assert(valid);
-    });
 
     it('invalid missing everything', async function () {
-        const res = await vdf.verify('0x', { gasLimit: 80000 })
-        await res.wait(1)
-            .then(() => { assert(false, "Tx must not success") })
-            .catch((err) => {})
-    });
-
-
-    it('Call Static: invalid missing output', async function () {
-        const valid = await vdf.callStatic.verify('0x' +
-            '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
-            '0000000000000800' +
-            '0000000000000400'
-        )
-        assert(valid);
+        assert(await vdf.callStatic.verify('0x'));
+        const res = await vdf.verify('0x', { gasLimit: 80000 });
+        await assert.rejects(res.wait(1), { reason: 'transaction failed' });
     });
 
     it('invalid missing output', async function () {
-        const res = await vdf.verify('0x' +
+        const input = '0x' +
             '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
             '0000000000000800' +
-            '0000000000000400', { gasLimit: 80000 }
-        )
-        await res.wait(1)
-            .then(() => assert(false, "call must not success"))
-            .catch((err) => {})
+            '0000000000000400';
+
+        assert(await vdf.callStatic.verify(input));
+
+        const res = await vdf.verify(input, { gasLimit: 80000 });
+
+        await assert.rejects(res.wait(1), { reason: 'transaction failed' });
     });
 
-
-    it('Call Static: invalid bitSize', async function () {
-        valid = await vdf.callStatic.verify('0x' +
-            '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
-            '0000000000000810' +
-            '0000000000000400' +
-            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b'
-        )
-        assert(valid);
-    });
 
     it('invalid bitSize', async function () {
-        const res = await vdf.verify('0x' +
+        const input = '0x' +
             '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
             '0000000000000810' +
             '0000000000000400' +
             '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b'
-            , { gasLimit: 80000 })
-        await res.wait(1)
-            .then(() => assert(false, "call must not success"))
-            .catch((err) => {})
+
+        assert(await vdf.callStatic.verify(input));
+
+        const res = await vdf.verify(input, { gasLimit: 80000 });
+
+        await assert.rejects(res.wait(1), { reason: 'transaction failed' });
     });
 
 
-    it('Call Static: invalid output length', async function () {
-        const valid = await vdf.callStatic.verify('0x' +
-            '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
-            '0000000000000800' +
-            '0000000000000400' +
-            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b13'
-        )
-        assert(valid);
-    });
 
     it('invalid output length', async function () {
-        const res = await vdf.verify('0x' +
+        const input = '0x' +
             '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
             '0000000000000800' +
             '0000000000000400' +
-            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b13'
-            , { gasLimit: 80000 })
-        await res.wait(1)
-            .then(() => assert(false, "call must not success"))
-            .catch((err) => {})
-    });
+            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b13';
 
+        assert(await vdf.callStatic.verify(input));
 
-    it('Call Static: invalid proof', async function () {
-        const valid = await vdf.callStatic.verify('0x' +
-            '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
-            '0000000000000800' +
-            '0000000000000400' +
-            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9c'
-        )
-        assert(valid)
+        const res = await vdf.verify(input, { gasLimit: 80000 });
+        await assert.rejects(res.wait(1), { reason: 'transaction failed' });
     });
 
 
     it('invalid proof', async function () {
-        const res = await vdf.verify('0x' +
+        const input = '0x' +
             '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
             '0000000000000800' +
             '0000000000000400' +
-            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9c'
-            , { gasLimit: 80000 })
-        await res.wait(1)
-            .then(() => assert(false, "call must not success"))
-            .catch((err) => {})
-    });
+            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9c';
 
+        assert(await vdf.callStatic.verify(input));
 
-    it('Call Static: valid proof', async function () {
-        const valid = await vdf.callStatic.verify('0x' +
-            '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
-            '0000000000000800' +
-            '0000000000000400' +
-            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b',
-        )
-        assert(valid)
+        const res = await vdf.verify(input, { gasLimit: 80000 });
+        await assert.rejects(res.wait(1), { reason: 'transaction failed' });
     });
 
 
     it('valid proof', async function () {
-        const res = await vdf.verify('0x' +
+        const input = '0x' +
             '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
             '0000000000000800' +
             '0000000000000400' +
-            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b',
-            {
-                gasLimit: 8000000,
-            }
-        )
-        assert(res != null, 'rpc response')
-        const rec = await res.wait(1)
-        assert.equal(rec?.status, 1, 'receipt status')
+            '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b';
+
+        assert(await vdf.callStatic.verify(input));
+
+        const res = await vdf.verify(input, { gasLimit: 8000000 });
+        assert(res != null, 'rpc response');
+        const rec = await res.wait(1);
+        assert.equal(rec?.status, 1, 'receipt status');
     });
 
-
-    it('Call Static: valid proof 613 6013', async function () {
-        const valid = await vdf.callStatic.verify('0x' +
-            '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
-            '0000000000000265' +
-            '000000000000177d' +
-            '00523e695c0ca5de480d7c98ec6335c818b5ca61ab2b0998e26205b2cacaa22f2bc7e06c48c4e7002e16255e0804c997452af76ae30faac01c3731e7025239b8974d5fd4c0a32a474e474602d78d00eb2c0fd8612aca9e3456c5e26840b91d0fa54a589e433391af48cf5900b2509999e8b287246400d6edf75e01f210871ff79d72afdeb7fe472f3ef5fd1110845f2a780bf1439bd99ee3960671c7'
-        )
-        assert(valid)
-    });
 
     it('valid proof 613 6013', async function () {
-        const res = await vdf.verify('0x' +
+        const input = '0x' +
             '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
             '0000000000000265' +
             '000000000000177d' +
-            '00523e695c0ca5de480d7c98ec6335c818b5ca61ab2b0998e26205b2cacaa22f2bc7e06c48c4e7002e16255e0804c997452af76ae30faac01c3731e7025239b8974d5fd4c0a32a474e474602d78d00eb2c0fd8612aca9e3456c5e26840b91d0fa54a589e433391af48cf5900b2509999e8b287246400d6edf75e01f210871ff79d72afdeb7fe472f3ef5fd1110845f2a780bf1439bd99ee3960671c7'
-            , { gasLimit: 8000000 })
-        assert(res != null, 'rpc response')
-        const rec = await res.wait(1)
-        assert.equal(rec?.status, 1, 'receipt status')
+            '00523e695c0ca5de480d7c98ec6335c818b5ca61ab2b0998e26205b2cacaa22f2bc7e06c48c4e7002e16255e0804c997452af76ae30faac01c3731e7025239b8974d5fd4c0a32a474e474602d78d00eb2c0fd8612aca9e3456c5e26840b91d0fa54a589e433391af48cf5900b2509999e8b287246400d6edf75e01f210871ff79d72afdeb7fe472f3ef5fd1110845f2a780bf1439bd99ee3960671c7';
+
+        assert(await vdf.callStatic.verify(input));
+
+        const res = await vdf.verify(input, { gasLimit: 8000000 });
+        assert(res != null, 'rpc response');
+        const rec = await res.wait(1);
+        assert.equal(rec?.status, 1, 'receipt status');
     });
 
 
@@ -206,6 +149,7 @@ describe('VDF raw', function () {
         assert.equal(rec?.status, 1, 'receipt status')
     });
 
+
     it('estimate gas', async function () {
         const gas = await vdf.estimateGas.verify('0x' +
             '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
@@ -215,7 +159,6 @@ describe('VDF raw', function () {
         )
         assert.equal(gas.toString(), '31606', 'estimated gas')
     });
-
 
 
     it('send without gasLimit', async function () {
@@ -228,7 +171,7 @@ describe('VDF raw', function () {
 
         const rec = await res.wait(1)
             .then(() => assert(false, "call must not success"))
-            .catch((err) => {})
+            .catch((err) => { })
     });
 
 });
