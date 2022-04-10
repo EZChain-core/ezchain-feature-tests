@@ -37,15 +37,46 @@ describe('VDF raw', function () {
                 }
             }
         `, wallet)
+
+
+        delegateVdf = await deploy(`
+            function verify(bytes memory input) external returns (bool valid) {
+                uint len = input.length;
+                uint success;
+                assembly {
+                    // call ecmul precompile
+                    success := delegatecall(
+                        not(0),
+                        0xF1,               // vdfVerify pre-compiled
+                        // 0,                  // ETH value
+                        add(input, 0x20),   // skip the first word, reserved for input length
+                        len,
+                        0x00,               // scratch space
+                        0x20
+                    )
+                    valid := mload(0x00)    // copy result from scrach space to return variable
+                }
+                if (success == 0) {
+                    revert("invalid VDF input");
+                }
+            }
+        `, wallet)
+
     });
 
 
     it('invalid missing everything', async function () {
-        await assert.rejects(vdf.callStatic.verify('0x'), {reason: "invalid VDF input"})
-
-        const res = await vdf.verify('0x', { gasLimit: 80000 });
+        await assert.rejects(vdf.callStatic.verify('0x'), { reason: "invalid VDF input" })
+        let res = await vdf.verify('0x', { gasLimit: 80000 });
         await assert.rejects(res.wait(1), { reason: 'transaction failed' });
+
+
+        await assert.rejects(delegateVdf.callStatic.verify('0x'), { reason: "invalid VDF input" }, "delegate call")
+        res = await delegateVdf.verify('0x', { gasLimit: 80000 });
+        await assert.rejects(res.wait(1), { reason: 'transaction failed' }, "delegate call");
+
     });
+
 
     it('invalid missing output', async function () {
         const input = '0x' +
@@ -53,7 +84,7 @@ describe('VDF raw', function () {
             '0000000000000800' +
             '0000000000000400';
 
-        await assert.rejects(vdf.callStatic.verify(input), {reason: "invalid VDF input"})
+        await assert.rejects(vdf.callStatic.verify(input), { reason: "invalid VDF input" })
 
         const res = await vdf.verify(input, { gasLimit: 80000 });
 
@@ -69,7 +100,7 @@ describe('VDF raw', function () {
             '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b'
 
 
-        await assert.rejects(vdf.callStatic.verify(input), {reason: "invalid VDF input"})
+        await assert.rejects(vdf.callStatic.verify(input), { reason: "invalid VDF input" })
 
         const res = await vdf.verify(input, { gasLimit: 80000 });
         await assert.rejects(res.wait(1), { reason: 'transaction failed' });
@@ -84,7 +115,7 @@ describe('VDF raw', function () {
             '0000000000000400' +
             '007b6b46c642f47b8b38b45d80eea2b24f76f12fa270995112344703c45cda62b547194e97ca1ca1153cd9b276abc983d663f09a5f8c56f99ce6acf5cda7b567a3b30b9eeb91b4587fdb67462bce5993ecbc1d500a502daf07259edb3a8a2a4769e56dd6b36657879e81b3677ecf19b89b9b441204be5d93c4d9d60997e38eba62ff976a65fdca18207004d347cb15193debb10d19087902d7ca92c9685276481d499ef0358901f693f262bd5126d2b39166dd3a81bd8ec09fe8634a7f95a1e9db049495702090ef7065196082bf2fb92b3a5948f667372027feff988a560a3f40def6ab53f81c2c021f246efa5da92e2f9c528ba5bbd9279d569d643d369f10469f0044124b8359a5b425526a6dca3e9f51fed227c462b6744eab9fdf2b7326720cb31c9a3a3d885ee9d3e089df2d14da69b986504fd9ecb10c41d92aa24b861dcbe0fce4cc7386992a6f6872b8cc2ce0f125326ad38f55fdf72aeb21a84b9d95b7d8693d46582163bcb4fc957925aa61f1dd5b36c27de5b1cd602372637adb3a2554000e98ef2094415adf4958f147147bb04c1305ba05d0833e8d925381e4978e25b2d6aeffe76e4b36a322e2154f39baad4cd1c0b2b2c1be83bc1d49effe6d0729937b34a18137026909ce169f76e2cd711c4c458d4f0aed4dd2d6bd9b931e2c71f8d0bf8950fefafcdc02c0edd56883dcc8421bfa0d0d21e92a9fc0184762799e9b13';
 
-        await assert.rejects(vdf.callStatic.verify(input), {reason: "invalid VDF input"})
+        await assert.rejects(vdf.callStatic.verify(input), { reason: "invalid VDF input" })
 
         const res = await vdf.verify(input, { gasLimit: 80000 });
         await assert.rejects(res.wait(1), { reason: 'transaction failed' });
