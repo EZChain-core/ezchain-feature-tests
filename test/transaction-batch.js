@@ -21,7 +21,7 @@ const result = compile(`
         bytes  data;
         uint256 value;	// ether value to transfer
     }
-    function batchCall(Tx[] calldata txs) external returns (bytes[] memory results) {}
+    function callBatch(Tx[] calldata txs) external returns (bytes[] memory results) {}
 `)
 
 let iface = new ethers.utils.Interface(result.abi)
@@ -36,7 +36,7 @@ async function sendBatchTx(wallet, recipients, accessList = [], gasLimit = null)
         return recipient;
     })
 
-    const data = iface.encodeFunctionData("batchCall", [txs])
+    const data = iface.encodeFunctionData("callBatch", [txs])
 
     const res = await wallet.sendTransaction({
         to: EVMPP,
@@ -58,7 +58,7 @@ async function callBatchTx(from, recipients) {
         return recipient;
     })
 
-    const data = iface.encodeFunctionData("batchCall", [txs])
+    const data = iface.encodeFunctionData("callBatch", [txs])
 
     const res = await provider.call({
         to: EVMPP,
@@ -80,7 +80,7 @@ async function estimateBatchTxGas(from, recipients) {
         return recipient;
     })
 
-    const data = iface.encodeFunctionData("batchCall", [txs])
+    const data = iface.encodeFunctionData("callBatch", [txs])
 
     const res = await provider.estimateGas({
         to: EVMPP,
@@ -227,11 +227,11 @@ describe('Batch Transaction', function () {
                 bytes  data;
                 uint256 value;	// ether value to transfer
             }
-            function batchCall(Tx[] calldata txs) external returns (int) {}
+            function callBatch(Tx[] calldata txs) external returns (int) {}
         `)
             const c = new ethers.Contract(EVMPP, result.abi, provider)
 
-            const i = await c.callStatic.batchCall([{
+            const i = await c.callStatic.callBatch([{
                 to: contractString.address,
                 data: contractString.interface.encodeFunctionData("returnString", ["hello"]),
                 value: 0
@@ -272,7 +272,7 @@ describe('Batch Transaction', function () {
                     bytes  data;
                     uint256 value;	// ether value to transfer
                 }
-                function batchCall(Tx[] calldata txs) external returns (string memory, int) {}
+                function callBatch(Tx[] calldata txs) external returns (string memory, int) {}
                 function something(Tx[] calldata txs) external returns (string memory, int) {}
                 function somethingElse() external returns (string memory, int) {}
             `)
@@ -315,7 +315,7 @@ describe('Batch Transaction', function () {
 
 
         it('Return values must be correct', async function () {
-            const [s, i] = await c.callStatic.batchCall([
+            const [s, i] = await c.callStatic.callBatch([
                 {
                     to: contractInt.address,
                     data: contractInt.interface.encodeFunctionData("returnInt", [6]),
@@ -334,7 +334,7 @@ describe('Batch Transaction', function () {
 
         it('Error reason: string must not empty', async function () {
             try {
-                await c.callStatic.batchCall([{
+                await c.callStatic.callBatch([{
                     to: contractStringInt.address,
                     data: contractStringInt.interface.encodeFunctionData("returnStringInt", [""]),
                     value: 0
@@ -353,7 +353,7 @@ describe('Batch Transaction', function () {
         it('Error reason: must be positive integer', async function () {
 
             try {
-                await c.callStatic.batchCall([{
+                await c.callStatic.callBatch([{
                     to: contractStringInt.address,
                     data: contractStringInt.interface.encodeFunctionData("returnStringInt", ["test"]),
                     value: 0
@@ -401,7 +401,7 @@ describe('Batch Transaction', function () {
                 bytes  data;
                 uint256 value;	// ether value to transfer
             }
-            function batchCall(Tx[] calldata txs) external returns (int) {}
+            function callBatch(Tx[] calldata txs) external returns (int) {}
         `)
             c = new ethers.Contract(EVMPP, result.abi, provider)
 
@@ -456,7 +456,7 @@ describe('Batch Transaction', function () {
 
         it('Tx must be out of gas', async function () {
             try {
-                result = await c.callStatic.batchCall([tx1, tx2, tx3], { gasLimit: batchGas.sub(1) })
+                result = await c.callStatic.callBatch([tx1, tx2, tx3], { gasLimit: batchGas.sub(1) })
                 assert(false)
 
             } catch (err) {
