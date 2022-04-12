@@ -12,8 +12,8 @@ describe('VDF raw', function () {
         wallet = await getWallet(__filename, provider)
     })
 
-    let vdf
 
+    let vdf, delegateVdf;
     before(async function () {
         vdf = await deploy(`
             function verify(bytes memory input) external returns (bool valid) {
@@ -38,30 +38,53 @@ describe('VDF raw', function () {
             }
         `, wallet)
 
-
         delegateVdf = await deploy(`
-            function verify(bytes memory input) external returns (bool valid) {
-                uint len = input.length;
-                uint success;
-                assembly {
-                    // call ecmul precompile
-                    success := delegatecall(
-                        not(0),
-                        0xF1,               // vdfVerify pre-compiled
-                        // 0,                  // ETH value
-                        add(input, 0x20),   // skip the first word, reserved for input length
-                        len,
-                        0x00,               // scratch space
-                        0x20
-                    )
-                    valid := mload(0x00)    // copy result from scrach space to return variable
-                }
-                if (success == 0) {
-                    revert("invalid VDF input");
-                }
-            }
-        `, wallet)
+        
+        address public implementation;
 
+        constructor(address _imp) {
+            implementation = _imp;            
+        }
+
+        /**
+         * @dev fallback implementation.
+         * Extracted to enable manual triggering.
+         */
+        fallback() external payable {
+            _delegate(implementation);
+        }
+    
+        /**
+         * @dev Delegates execution to an implementation contract.
+         * This is a low level function that doesn't return to its internal call site.
+         * It will return to the external caller whatever the implementation returns.
+         * @param implementation Address to delegate.
+         */
+        function _delegate(address implementation) internal {
+            assembly {
+                // Copy msg.data. We take full control of memory in this inline assembly
+                // block because it will not return to Solidity code. We overwrite the
+                // Solidity scratch pad at memory position 0.
+                calldatacopy(0, 0, calldatasize())
+    
+                // Call the implementation.
+                // out and outsize are 0 because we don't know the size yet.
+                let result := delegatecall(gas(), implementation, 0, calldatasize(), 0, 0)
+    
+                let size := returndatasize()
+                // Copy the returned data.
+                returndatacopy(0, 0, size)
+    
+                switch result
+                // delegatecall returns 0 on error.
+                case 0 { revert(0, size) }
+                default { return(0, size) }
+            }
+        }
+    `, wallet, vdf.address)
+
+
+    delegateVdf = new ethers.Contract(delegateVdf.address, vdf.interface, wallet)
     });
 
 
