@@ -1,31 +1,26 @@
 const { ethers } = require('ethers');
 const assert = require('assert');
-const { compile } = require('../lib/solc_util')
 const { getWallet } = require('../lib/accounts')
 const { deploy } = require('../lib/solc_util')
-
+const { createEVMPP } = require('../lib/evmpp')
 
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider(RPC)
 const nocoin = new ethers.Wallet.createRandom().connect(provider)
 const dummy = new ethers.Wallet.createRandom()
-const EVMPP = "0x5555555555555555555555555555555555555555"
 
-const result = compile(`
-    function call(
-        address to,
-        bytes calldata data,
-        uint256 nonce,
-        uint256 gasLimit,
-        uint256 v,      // signature V
-        uint256 r,      // signature R
-        uint256 s       // signature S
-    ) payable external {}`
-)
+
+const EVMPP = createEVMPP(provider, {
+    returns: {
+        payFor: 'bytes[] memory results',
+        callBatch: 'bytes[] memory results'
+    },
+    
+})
 
 describe('Fee Payer', function () {
     let wallet
-    let c
+    let evmpp
     let chainId
     let gasPrice
     before(async () => {
@@ -36,7 +31,7 @@ describe('Fee Payer', function () {
         ])
         // make sure the gasPrice is more than sufficient for any network fluctuation
         gasPrice = gasPrice.mul(4)
-        c = new ethers.Contract(EVMPP, result.abi, wallet)
+        evmpp = EVMPP.connect(wallet);
     })
 
     it('tx fee payed', async function () {
@@ -62,7 +57,7 @@ describe('Fee Payer', function () {
 
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
-        const res = await c.call(
+        const res = await evmpp.payFor(
             t.to,
             t.data,
             nonce,
@@ -83,7 +78,7 @@ describe('Fee Payer', function () {
         assert.equal(a, walletNonce + 1, "fee payer nonce must be increased")
         assert.equal(b, nonce + 1, "fee payee nonce must be increased")
 
-        await assert.rejects(c.callStatic.call(
+        await assert.rejects(evmpp.callStatic.payFor(
             t.to,
             t.data,
             t.nonce,
@@ -112,7 +107,7 @@ describe('Fee Payer', function () {
         const rawSignedTx = await nocoin.signTransaction(tx)
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
-        await assert.rejects(c.callStatic.call(
+        await assert.rejects(evmpp.callStatic.payFor(
             t.to,
             t.data,
             t.nonce,
@@ -143,7 +138,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(evmpp.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -157,7 +152,7 @@ describe('Fee Payer', function () {
                 },
             ), { reason: 'payee: invalid signature' }, 'invalid V')
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(evmpp.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -171,7 +166,7 @@ describe('Fee Payer', function () {
                 },
             ), { reason: 'payee: invalid signature' }, 'invalid R')
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(evmpp.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -201,7 +196,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            await c.call(
+            await evmpp.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -239,7 +234,7 @@ describe('Fee Payer', function () {
 
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
-        const res = await c.call(
+        const res = await evmpp.payFor(
             t.to,
             t.data,
             nonce,
@@ -264,17 +259,6 @@ describe('Fee Payer', function () {
 
 
     describe('Batch Tx', function () {
-        const batchTx = compile(`
-            struct Tx {
-                address to;
-                bytes  data;
-                uint256 value;	// ether value to transfer
-            }
-            function call(Tx[] calldata txs) external returns (bytes[] memory results) {}
-        `)
-        let iface = new ethers.utils.Interface(batchTx.abi)
-
-
         const txs = [
             {
                 to: '0x7dcA4B509c9F5296264d615147581c36db81A3f8',
@@ -298,11 +282,11 @@ describe('Fee Payer', function () {
 
             const tx = {
                 chainId,
-                to: EVMPP,
+                to: evmpp.address,
                 gasLimit: 30000,
                 gasPrice,
                 nonce,
-                data: iface.encodeFunctionData("call", [txs])
+                data: evmpp.interface.encodeFunctionData("callBatch", [txs])
             }
 
             const rawSignedTx = await nocoin.signTransaction(tx)
@@ -310,7 +294,7 @@ describe('Fee Payer', function () {
             const walletNonce = await wallet.getTransactionCount('pending')
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            const res = await c.call(
+            const res = await evmpp.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -327,7 +311,7 @@ describe('Fee Payer', function () {
             assert.equal(await wallet.getTransactionCount('pending'), walletNonce + 1, "fee payer nonce must be increased")
             assert.equal(await nocoin.getTransactionCount('pending'), nonce + 1, "fee payee nonce must be increased")
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(evmpp.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -347,11 +331,11 @@ describe('Fee Payer', function () {
 
             const tx = {
                 chainId,
-                to: EVMPP,
+                to: evmpp.address,
                 gasLimit: 40000,
                 gasPrice,
                 nonce,
-                data: iface.encodeFunctionData("call", [txs])
+                data: evmpp.interface.encodeFunctionData("callBatch", [txs])
             }
 
             const rawSignedTx = await nocoin.signTransaction(tx)
@@ -361,7 +345,7 @@ describe('Fee Payer', function () {
             const balance2Before = await provider.getBalance("0x348145b162bE7865Dd32DADF3C2E193dc1450489");
             const balance3Before = await provider.getBalance("0xBEa3eF61735cb5d48112DB218eACF95bb9cA4D2C");
 
-            const res = await c.call(
+            const res = await evmpp.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -390,17 +374,6 @@ describe('Fee Payer', function () {
     describe('ERC20', function () {
         // let erc20, wallet;
 
-        const batchTx = compile(`
-        struct Tx {
-            address to;
-            bytes  data;
-            uint256 value;	// ether value to transfer
-        }
-        function call(Tx[] calldata txs) external returns (bytes[] memory results) {}
-    `)
-        let iface = new ethers.utils.Interface(batchTx.abi)
-
-
         it('transfer must be successfully', async function () {
             const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
 
@@ -426,7 +399,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            const res = await c.call(
+            const res = await evmpp.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -464,7 +437,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(evmpp.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -504,9 +477,9 @@ describe('Fee Payer', function () {
 
             const tx = {
                 chainId,
-                to: EVMPP,
+                to: evmpp.address,
                 gasLimit: 70000,
-                data: iface.encodeFunctionData("call", [txs]),
+                data: evmpp.interface.encodeFunctionData("callBatch", [txs]),
                 gasPrice,
                 nonce,
             }
@@ -519,7 +492,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            const res = await c.call(
+            const res = await evmpp.payFor(
                 t.to,
                 t.data,
                 nonce,
@@ -566,7 +539,7 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            await assert.rejects(c.callStatic.call(
+            await assert.rejects(evmpp.callStatic.payFor(
                 t.to,
                 t.data,
                 nonce,
