@@ -191,7 +191,20 @@ describe('VDF raw', function () {
     });
 
 
-    it('send with gasLimit', async function () {
+    it('send with not enough gasLimit', async function () {
+        const res = await vdf.verify('0x' +
+            '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
+            '0000000000000800' +
+            '0000000000000800' +
+            '001829e155791e12d2894feb643a42d941ba623f266d71a5f56b502f9d5f3ba5b18f745d411886e8c06bbf562d321477f4924e99ac0fe8a797ac554dde9e7ace6db570cb3a5ee797aa9dead6d6b5a0d990a884d5cebd61a077c9bab578264d34b81097f88a1d842e60184b25523f4f934090b08549d6f8deffd5b7df0f510eac38000c702571d7f6cbdd5d743955b3a91fc9d3887f57a078b20c69d5abc1cfc24f3da766dfb2351f71828fe364b88038f12c30a424b8e61a38c37c0512bcb4320a53fa014c19529d09194ff5ed979e427a5b5563846bfa0a8f75b86b8f099f3e0cbc1a84d8fa2dca3eba5e8442a5c9c8e18175c7ef79aa5ac5f733d63d793a4c3fa300181c1dc35714a424273c1bc1ff0ed286131eb7e382bc138512370fb003069a818608cbf38278073d969ee8ac98e556f848ec8b191271005843f453d2c73e1f375d4fa57faffcbadf5f65ea7ac180dc94ee88224fe16c8161e4aa906150da760c3901255979bc49ae296d1015df5fbc29a0bc1c87860bda085fbfe453fb9d6c0affebf47fd0bdc8fd85ab27f6a020e6e943010101e350106870d382e3381f47d74cea6ff6e134267c4466a2799d476b5bef97238a6fe7ce522151003cec2feddfcf2a78f56ba56a5c0df2b60f262d34a980b6d64a955e6129382d19bea9ea6cc05212b3a9d66670e6fcd36fd1cd0a33e226c3a8ef09204713cec14fadbaa633b07b',
+            { gasLimit: 5374856-1 }
+        )
+        assert(res != null, 'rpc response')
+        await assert.rejects(res.wait(1), { reason: 'transaction failed' })
+    });
+
+
+    it('send with just enough gasLimit', async function () {
         const res = await vdf.verify('0x' +
             '55b6a7e73c57d1ca35b35cad22869eaa33e10fa2a822fb7308f419269794d611' +
             '0000000000000800' +
