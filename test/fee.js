@@ -18,6 +18,11 @@ const EVMPP = createEVMPP(provider, {
     
 })
 
+function assertApprox(x, y, msg, tolerant = 0.1) {
+    assert(x >= y * (1-tolerant), msg + ': too low')
+    assert(x <= y * (1+tolerant), msg + ': too high')
+}
+
 describe('Fee Payer', function () {
     let wallet
     let evmpp
@@ -372,17 +377,17 @@ describe('Fee Payer', function () {
 
 
     describe('ERC20', function () {
-        // let erc20, wallet;
+        let erc20
+        before(async () => {
+            erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
+            const r = await erc20.transfer(nocoin.address, "30")
+            await r.wait(1)
+        })
 
         it('transfer must be successfully', async function () {
-            const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
-
             const [nonce] = await Promise.all([
                 nocoin.getTransactionCount('pending'),
             ])
-
-            const r = await erc20.transfer(nocoin.address, "10")
-            await r.wait(1)
 
             const tx = {
                 chainId,
@@ -418,8 +423,6 @@ describe('Fee Payer', function () {
 
 
         it('transfer must be failed', async function () {
-            const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
-
             const [nonce] = await Promise.all([
                 nocoin.getTransactionCount('pending'),
             ])
@@ -448,9 +451,7 @@ describe('Fee Payer', function () {
         });
 
 
-        it('batch TX', async function () {
-            const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
-
+        it('batch erc20', async function () {
             const txs = [
                 {
                     to: erc20.address,
@@ -469,20 +470,11 @@ describe('Fee Payer', function () {
                 }
             ]
 
+            const gasLimit = await evmpp.connect(nocoin).estimateGas.callBatch(txs)
+            assertApprox(gasLimit.toNumber(), 91712, 'payee batch tx gasLimit')
+
             const nonce = await nocoin.getTransactionCount('pending')
-
-            const r = await erc20.transfer(nocoin.address, "10")
-            let receipt = await r.wait(1);
-            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
-
-            const tx = {
-                chainId,
-                to: evmpp.address,
-                gasLimit: 70000,
-                data: evmpp.interface.encodeFunctionData("callBatch", [txs]),
-                gasPrice,
-                nonce,
-            }
+            const tx = await evmpp.connect(nocoin).populateTransaction.callBatch(txs, { gasLimit, nonce, gasPrice })
 
             const balanceBefore = await erc20.balanceOf(nocoin.address)
             const balance2Before = await erc20.balanceOf("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
@@ -492,17 +484,27 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
+            const gas = await evmpp.estimateGas.payFor(
+                t.to,
+                t.data,
+                t.nonce,
+                t.gasLimit,
+                t.v, t.r, t.s,
+                { gasPrice },
+            )
+            assertApprox(gas.toNumber(), 120172, 'payee batch tx gasLimit')
+
             const res = await evmpp.payFor(
                 t.to,
                 t.data,
-                nonce,
+                t.nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
                 { gasPrice },
             )
 
             receipt = await res.wait(1);
-            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
+            assert.equal(receipt.gasUsed.toNumber(), gas.toNumber(), 'payer gas used')
 
             const balanceAfter = await erc20.balanceOf(nocoin.address)
             const balance2After = await erc20.balanceOf("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
