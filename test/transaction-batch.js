@@ -75,15 +75,7 @@ async function estimateBatchTxGas(from, recipients) {
         return recipient;
     })
 
-    const data = evmpp.interface.encodeFunctionData("callBatch", [txs])
-
-    const res = await provider.estimateGas({
-        to: EVMPP,
-        from: from,
-        data: data
-    });
-
-    return res
+    return evmpp.connect(from).estimateGas.callBatch(txs)
 }
 
 

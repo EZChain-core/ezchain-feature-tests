@@ -15,8 +15,13 @@ const EVMPP = createEVMPP(provider, {
         payFor: 'bytes[] memory results',
         callBatch: 'bytes[] memory results'
     },
-    
+
 })
+
+function assertApprox(x, y, msg, tolerant = 0.1) {
+    assert(x >= y * (1 - tolerant), msg + ': too low')
+    assert(x <= y * (1 + tolerant), msg + ': too high')
+}
 
 describe('Fee Payer', function () {
     let wallet
@@ -63,12 +68,12 @@ describe('Fee Payer', function () {
             nonce,
             t.gasLimit,
             t.v, t.r, t.s, {
-                gasPrice: gasPrice,
-                value: ethers.utils.parseEther('30')
-            },
+            gasPrice: gasPrice,
+            value: ethers.utils.parseEther('30')
+        },
         )
         const receipt = await res.wait(1);
-        assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
+        assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
 
         const [a, b] = await Promise.all([
             wallet.getTransactionCount('pending'),
@@ -250,7 +255,7 @@ describe('Fee Payer', function () {
         )
 
         const receipt = await res.wait(1);
-        assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
+        assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
 
         const balanceAfter = await provider.getBalance(await nocoin.getAddress());
         assert(balanceBefore.eq(balanceAfter), "payee balance must be unchanged")
@@ -306,7 +311,7 @@ describe('Fee Payer', function () {
                 },
             )
             const receipt = await res.wait(1);
-            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
+            assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
 
             assert.equal(await wallet.getTransactionCount('pending'), walletNonce + 1, "fee payer nonce must be increased")
             assert.equal(await nocoin.getTransactionCount('pending'), nonce + 1, "fee payee nonce must be increased")
@@ -357,7 +362,7 @@ describe('Fee Payer', function () {
                 },
             )
             const receipt = await res.wait(1);
-            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
+            assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
 
             const balance1After = await provider.getBalance("0x7dcA4B509c9F5296264d615147581c36db81A3f8");
             const balance2After = await provider.getBalance("0x348145b162bE7865Dd32DADF3C2E193dc1450489");
@@ -372,17 +377,17 @@ describe('Fee Payer', function () {
 
 
     describe('ERC20', function () {
-        // let erc20, wallet;
+        let erc20
+        before(async () => {
+            erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
+            const r = await erc20.transfer(nocoin.address, "30")
+            await r.wait(1)
+        })
 
         it('transfer must be successfully', async function () {
-            const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
-
             const [nonce] = await Promise.all([
                 nocoin.getTransactionCount('pending'),
             ])
-
-            const r = await erc20.transfer(nocoin.address, "10")
-            await r.wait(1)
 
             const tx = {
                 chainId,
@@ -409,7 +414,7 @@ describe('Fee Payer', function () {
             )
 
             const receipt = await res.wait(1);
-            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
+            assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
             const afterBalance = await erc20.balanceOf(nocoin.address)
 
             assert.equal(beforeBalance.sub(afterBalance), 4, 'Balance must be decreased by 4')
@@ -418,8 +423,6 @@ describe('Fee Payer', function () {
 
 
         it('transfer must be failed', async function () {
-            const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
-
             const [nonce] = await Promise.all([
                 nocoin.getTransactionCount('pending'),
             ])
@@ -448,9 +451,7 @@ describe('Fee Payer', function () {
         });
 
 
-        it('batch TX', async function () {
-            const erc20 = await deploy('ERC20.sol', wallet, ethers.utils.parseUnits("100"))
-
+        it('batch erc20', async function () {
             const txs = [
                 {
                     to: erc20.address,
@@ -469,20 +470,11 @@ describe('Fee Payer', function () {
                 }
             ]
 
+            const gasLimit = await evmpp.connect(nocoin).estimateGas.callBatch(txs)
+            assertApprox(gasLimit.toNumber(), 91712, 'payee batch tx gasLimit')
+
             const nonce = await nocoin.getTransactionCount('pending')
-
-            const r = await erc20.transfer(nocoin.address, "10")
-            let receipt = await r.wait(1);
-            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
-
-            const tx = {
-                chainId,
-                to: evmpp.address,
-                gasLimit: 70000,
-                data: evmpp.interface.encodeFunctionData("callBatch", [txs]),
-                gasPrice,
-                nonce,
-            }
+            const tx = await evmpp.connect(nocoin).populateTransaction.callBatch(txs, { gasLimit, nonce, gasPrice })
 
             const balanceBefore = await erc20.balanceOf(nocoin.address)
             const balance2Before = await erc20.balanceOf("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
@@ -492,17 +484,27 @@ describe('Fee Payer', function () {
 
             const t = ethers.utils.parseTransaction(rawSignedTx)
 
+            const gas = await evmpp.estimateGas.payFor(
+                t.to,
+                t.data,
+                t.nonce,
+                t.gasLimit,
+                t.v, t.r, t.s,
+                { gasPrice },
+            )
+            assertApprox(gas.toNumber(), 120172, 'payee batch tx gasLimit')
+
             const res = await evmpp.payFor(
                 t.to,
                 t.data,
-                nonce,
+                t.nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
                 { gasPrice },
             )
 
             receipt = await res.wait(1);
-            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
+            assert.equal(receipt.gasUsed.toNumber(), gas.toNumber(), 'payer gas used')
 
             const balanceAfter = await erc20.balanceOf(nocoin.address)
             const balance2After = await erc20.balanceOf("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
@@ -522,18 +524,13 @@ describe('Fee Payer', function () {
 
             const r = await erc20.transfer(nocoin.address, "10")
             const receipt = await r.wait(1);
-            assert(receipt.gasUsed.gt(21000*2), 'double intrinsic gas')
+            assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
 
-            const tx = {
-                chainId,
-                to: erc20.address,
+            const tx = await erc20.connect(nocoin).populateTransaction.transfer('0x1234567890123456789012345678901234567890', 4, {
                 gasLimit: 21000,
-                data: erc20.interface.encodeFunctionData("transfer", ["0x1234567890123456789012345678901234567890", 4]),
-                gasPrice,
-                nonce,
-            }
-
-            const beforeBalance = await erc20.balanceOf(nocoin.address)
+                gasPrice: gasPrice,
+                nonce: nonce
+            });
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
@@ -546,9 +543,23 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.v, t.r, t.s,
                 { gasPrice },
-            ), { reason: "payee: intrinsic gas too low" })
-        });
+            ), { reason: "payee: intrinsic gas too low" });
 
+
+            await assert.rejects(evmpp.callStatic.payFor(
+                t.to,
+                t.data,
+                nonce,
+                t.gasLimit,
+                t.v, t.r, t.s,
+                { gasPrice, gasLimit: 21000 * 2 },
+            ), (err) => {
+                const body = JSON.parse(err.error.body)
+                assert.strictEqual(body.error.message, 'out of gas');
+                return true;
+            });
+
+        });
 
 
     });
