@@ -27,19 +27,20 @@ describe('Fee Payer', function () {
     let wallet
     let evmpp
     let chainId
-    let gasPrice
     before(async () => {
-        [wallet, { chainId }, gasPrice] = await Promise.all([
+        [wallet, { chainId }] = await Promise.all([
             getWallet(__filename, provider),
             provider.getNetwork(),
-            provider.getGasPrice(),
         ])
-        // make sure the gasPrice is more than sufficient for any network fluctuation
-        gasPrice = gasPrice.mul(4)
         evmpp = EVMPP.connect(wallet);
     })
 
     it('tx fee payed', async function () {
+        await assert.rejects(
+            nocoin.sendTransaction({ to: dummy.address, gasLimit: 21000, }),
+            { reason: 'insufficient funds for intrinsic transaction cost' },
+        )
+
         const [nonce, walletNonce] = await Promise.all([
             nocoin.getTransactionCount('pending'),
             wallet.getTransactionCount('pending'),
@@ -49,16 +50,11 @@ describe('Fee Payer', function () {
             chainId,
             to: dummy.address,
             gasLimit: 21000,
-            gasPrice,
+            gasPrice: 0,
             nonce,
         }
 
         const rawSignedTx = await nocoin.signTransaction(tx)
-
-        await assert.rejects(
-            provider.sendTransaction(rawSignedTx),
-            { reason: 'insufficient funds for intrinsic transaction cost' },
-        )
 
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
@@ -68,7 +64,6 @@ describe('Fee Payer', function () {
             nonce,
             t.gasLimit,
             t.v, t.r, t.s, {
-            gasPrice: gasPrice,
             value: ethers.utils.parseEther('30')
         },
         )
@@ -89,7 +84,6 @@ describe('Fee Payer', function () {
             t.nonce,
             t.gasLimit,
             t.v, t.r, t.s, {
-            gasPrice,
             value: ethers.utils.parseEther('30')
         },
         ), { reason: 'payee: invalid nonce' }, 'payee tx replayed')
@@ -105,7 +99,7 @@ describe('Fee Payer', function () {
             chainId,
             to: dummy.address,
             gasLimit: 21000,
-            gasPrice,
+            gasPrice: 0,
             nonce: nonce + 1,
         }
 
@@ -118,7 +112,6 @@ describe('Fee Payer', function () {
             t.nonce,
             t.gasLimit,
             t.v, t.r, t.s, {
-            gasPrice: gasPrice,
             value: ethers.utils.parseEther('30')
         },
         ), { reason: 'payee: invalid nonce' })
@@ -135,7 +128,7 @@ describe('Fee Payer', function () {
                 chainId,
                 to: to,
                 gasLimit: 21000,
-                gasPrice,
+                gasPrice: 0,
                 nonce,
             }
 
@@ -152,7 +145,6 @@ describe('Fee Payer', function () {
                 t.r,
                 t.s,
                 {
-                    gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
             ), { reason: 'payee: invalid signature' }, 'invalid V')
@@ -166,7 +158,6 @@ describe('Fee Payer', function () {
                 0,
                 t.s,
                 {
-                    gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
             ), { reason: 'payee: invalid signature' }, 'invalid R')
@@ -180,7 +171,6 @@ describe('Fee Payer', function () {
                 t.r,
                 0,
                 {
-                    gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
             ), { reason: 'payee: invalid signature' }, 'invalid S')
@@ -193,7 +183,7 @@ describe('Fee Payer', function () {
                 chainId,
                 to: to,
                 gasLimit: 21000,
-                gasPrice,
+                gasPrice: 0,
                 nonce,
             }
 
@@ -210,7 +200,6 @@ describe('Fee Payer', function () {
                 t.r,
                 '0x46a768e02b8acce6a293edafca20523f67f520c700fc51ca353583f03a0d8c01',
                 {
-                    gasPrice: gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
             )
@@ -231,7 +220,7 @@ describe('Fee Payer', function () {
             chainId,
             to: dummy.address,
             gasLimit: 21000,
-            gasPrice,
+            gasPrice: 0,
             nonce,
         }
 
@@ -248,7 +237,6 @@ describe('Fee Payer', function () {
             t.r,
             t.s,
             {
-                gasPrice: gasPrice,
                 value: ethers.utils.parseEther('30'),
                 gasLimit: 100000
             },
@@ -289,7 +277,7 @@ describe('Fee Payer', function () {
                 chainId,
                 to: evmpp.address,
                 gasLimit: 30000,
-                gasPrice,
+                gasPrice: 0,
                 nonce,
                 data: evmpp.interface.encodeFunctionData("callBatch", [txs])
             }
@@ -306,7 +294,6 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.v, t.r, t.s,
                 {
-                    gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
             )
@@ -323,7 +310,6 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.v, t.r, t.s,
                 {
-                    gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
             ), { reason: 'payee: invalid nonce' }, 'payee replay protection')
@@ -338,7 +324,7 @@ describe('Fee Payer', function () {
                 chainId,
                 to: evmpp.address,
                 gasLimit: 40000,
-                gasPrice,
+                gasPrice: 0,
                 nonce,
                 data: evmpp.interface.encodeFunctionData("callBatch", [txs])
             }
@@ -357,7 +343,6 @@ describe('Fee Payer', function () {
                 t.gasLimit,
                 t.v, t.r, t.s,
                 {
-                    gasPrice,
                     value: ethers.utils.parseEther('30')
                 },
             )
@@ -394,7 +379,7 @@ describe('Fee Payer', function () {
                 to: erc20.address,
                 gasLimit: 60000,
                 data: erc20.interface.encodeFunctionData("transfer", ["0x1234567890123456789012345678901234567890", 4]),
-                gasPrice,
+                gasPrice: 0,
                 nonce,
             }
 
@@ -410,7 +395,6 @@ describe('Fee Payer', function () {
                 nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
-                { gasPrice: gasPrice },
             )
 
             const receipt = await res.wait(1);
@@ -432,7 +416,7 @@ describe('Fee Payer', function () {
                 to: erc20.address,
                 gasLimit: 21000,
                 data: erc20.interface.encodeFunctionData("transfer", ["0x1234567890123456789012345678901234567890", 4]),
-                gasPrice,
+                gasPrice: 0,
                 nonce,
             }
 
@@ -446,7 +430,6 @@ describe('Fee Payer', function () {
                 nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
-                { gasPrice },
             ), { reason: "payee: intrinsic gas too low" })
         });
 
@@ -474,7 +457,7 @@ describe('Fee Payer', function () {
             assertApprox(gasLimit.toNumber(), 91712, 'payee batch tx gasLimit')
 
             const nonce = await nocoin.getTransactionCount('pending')
-            const tx = await evmpp.connect(nocoin).populateTransaction.callBatch(txs, { gasLimit, nonce, gasPrice })
+            const tx = await evmpp.connect(nocoin).populateTransaction.callBatch(txs, { gasLimit, nonce })
 
             const balanceBefore = await erc20.balanceOf(nocoin.address)
             const balance2Before = await erc20.balanceOf("0x202359E874C243012710Bd5e61db43b1f3F5c02c");
@@ -490,7 +473,6 @@ describe('Fee Payer', function () {
                 t.nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
-                { gasPrice },
             )
             assertApprox(gas.toNumber(), 120172, 'payee batch tx gasLimit')
 
@@ -500,7 +482,6 @@ describe('Fee Payer', function () {
                 t.nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
-                { gasPrice },
             )
 
             receipt = await res.wait(1);
@@ -528,7 +509,7 @@ describe('Fee Payer', function () {
 
             const tx = await erc20.connect(nocoin).populateTransaction.transfer('0x1234567890123456789012345678901234567890', 4, {
                 gasLimit: 21000,
-                gasPrice: gasPrice,
+                gasPrice: 0,
                 nonce: nonce
             });
 
@@ -542,7 +523,6 @@ describe('Fee Payer', function () {
                 nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
-                { gasPrice },
             ), { reason: "payee: intrinsic gas too low" });
 
 
@@ -552,7 +532,7 @@ describe('Fee Payer', function () {
                 nonce,
                 t.gasLimit,
                 t.v, t.r, t.s,
-                { gasPrice, gasLimit: 21000 * 2 },
+                { gasLimit: 21000 * 2 },
             ), (err) => {
                 const body = JSON.parse(err.error.body)
                 assert.strictEqual(body.error.message, 'out of gas');
