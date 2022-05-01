@@ -177,7 +177,6 @@ describe('Sponsor', function () {
         }
 
         const rawSignedTx = await nocoin.signTransaction(tx)
-        const t = ethers.utils.parseTransaction(rawSignedTx)
 
         await assert.rejects(evmpp.callStatic.sponsor(
             rawSignedTx
@@ -228,8 +227,6 @@ describe('Sponsor', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const t = ethers.utils.parseTransaction(rawSignedTx)
-
             await evmpp.sponsor(rawSignedTx)
 
             assert.equal(await nocoin.getTransactionCount('pending'), nonce, "fee payee nonce must not be increased")
@@ -253,8 +250,6 @@ describe('Sponsor', function () {
         }
 
         const rawSignedTx = await nocoin.signTransaction(tx)
-
-        const t = ethers.utils.parseTransaction(rawSignedTx)
 
         const res = await evmpp.sponsor(rawSignedTx)
 
@@ -301,9 +296,8 @@ describe('Sponsor', function () {
             const rawSignedTx = await nocoin.signTransaction(tx)
 
             const walletNonce = await wallet.getTransactionCount('pending')
-            const t = ethers.utils.parseTransaction(rawSignedTx)
 
-            const res = await evmpp.sponsor(rawSignedTx)
+            const res = await evmpp.sponsor(rawSignedTx, { value: ethers.utils.parseEther('30') });
 
             const receipt = await res.wait(1);
             assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
@@ -320,14 +314,7 @@ describe('Sponsor', function () {
         it('balance', async function () {
             const nonce = await nocoin.getTransactionCount('pending')
 
-            const tx = {
-                chainId,
-                to: evmpp.address,
-                gasLimit: 40000,
-                gasPrice: 0,
-                nonce,
-                data: evmpp.interface.encodeFunctionData("callBatch", [txs])
-            }
+            const tx = await evmpp.connect(nocoin).populateTransaction.callBatch(txs, { gasLimit: 40000, nonce: nonce, gasPrice: 0 })
 
             const rawSignedTx = await nocoin.signTransaction(tx)
             const t = ethers.utils.parseTransaction(rawSignedTx)
@@ -336,7 +323,7 @@ describe('Sponsor', function () {
             const balance2Before = await provider.getBalance("0x348145b162bE7865Dd32DADF3C2E193dc1450489");
             const balance3Before = await provider.getBalance("0xBEa3eF61735cb5d48112DB218eACF95bb9cA4D2C");
 
-            const res = await evmpp.sponsor(rawSignedTx)
+            const res = await evmpp.sponsor(rawSignedTx, { value: ethers.utils.parseEther('30') })
             const receipt = await res.wait(1);
             assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
 
@@ -365,20 +352,11 @@ describe('Sponsor', function () {
                 nocoin.getTransactionCount('pending'),
             ])
 
-            const tx = {
-                chainId,
-                to: erc20.address,
-                gasLimit: 60000,
-                data: erc20.interface.encodeFunctionData("transfer", ["0x1234567890123456789012345678901234567890", 4]),
-                gasPrice: 0,
-                nonce,
-            }
+            const tx = await evmpp.connect(nocoin).populateTransaction.callBatch(txs, { gasLimit: 60000, nonce: nonce, gasPrice: 0 })
 
             const beforeBalance = await erc20.balanceOf(nocoin.address)
 
             const rawSignedTx = await nocoin.signTransaction(tx)
-
-            const t = ethers.utils.parseTransaction(rawSignedTx)
 
             const res = await evmpp.sponsor(rawSignedTx)
 
@@ -406,8 +384,6 @@ describe('Sponsor', function () {
             }
 
             const rawSignedTx = await nocoin.signTransaction(tx)
-
-            const t = ethers.utils.parseTransaction(rawSignedTx)
 
             await assert.rejects(evmpp.callStatic.sponsor(rawSignedTx
             ), { reason: "payee: intrinsic gas too low" })
@@ -445,18 +421,10 @@ describe('Sponsor', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const t = ethers.utils.parseTransaction(rawSignedTx)
-
             const gas = await evmpp.estimateGas.sponsor(rawSignedTx)
             assertApprox(gas.toNumber(), 120172, 'payee batch tx gasLimit')
 
-            const res = await evmpp.payFor(
-                t.to,
-                t.data,
-                t.nonce,
-                t.gasLimit,
-                t.v, t.r, t.s,
-            )
+            const res = await evmpp.sponsor(rawSignedTx);
 
             receipt = await res.wait(1);
             assert.equal(receipt.gasUsed.toNumber(), gas.toNumber(), 'payer gas used')
@@ -489,18 +457,10 @@ describe('Sponsor', function () {
 
             const rawSignedTx = await nocoin.signTransaction(tx)
 
-            const t = ethers.utils.parseTransaction(rawSignedTx)
-
             await assert.rejects(evmpp.callStatic.sponsor(rawSignedTx
             ), { reason: "payee: intrinsic gas too low" });
 
-
-            await assert.rejects(evmpp.callStatic.payFor(
-                t.to,
-                t.data,
-                nonce,
-                t.gasLimit,
-                t.v, t.r, t.s,
+            await assert.rejects(evmpp.callStatic.sponsor(rawSignedTx,
                 { gasLimit: 21000 * 2 },
             ), (err) => {
                 const body = JSON.parse(err.error.body)
