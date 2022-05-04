@@ -352,7 +352,14 @@ describe('Sponsor', function () {
                 nocoin.getTransactionCount('pending'),
             ])
 
-            const tx = await evmpp.connect(nocoin).populateTransaction.callBatch(txs, { gasLimit: 60000, nonce: nonce, gasPrice: 0 })
+            const tx = {
+                chainId,
+                to: erc20.address,
+                gasLimit: 60000,
+                data: erc20.interface.encodeFunctionData("transfer", ["0x1234567890123456789012345678901234567890", 4]),
+                gasPrice: 0,
+                nonce,
+            }
 
             const beforeBalance = await erc20.balanceOf(nocoin.address)
 
