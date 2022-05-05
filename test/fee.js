@@ -211,9 +211,11 @@ describe('Fee Payer', function () {
 
 
     it('balance change', async function () {
-        const [nonce, balanceBefore] = await Promise.all([
+        const [nonce, balanceBefore, payerBalance, receiverBalance] = await Promise.all([
             nocoin.getTransactionCount('pending'),
             provider.getBalance(nocoin.address),
+            provider.getBalance(wallet.address),
+            provider.getBalance(dummy.address),
         ])
 
         const tx = {
@@ -228,12 +230,12 @@ describe('Fee Payer', function () {
 
         const t = ethers.utils.parseTransaction(rawSignedTx)
 
-        const res = await evmpp.payFor(
+        const res = await evmpp.connect(wallet).payFor(
             t.to,
             t.data,
             nonce,
             t.gasLimit,
-            t.r,
+            t.v,
             t.r,
             t.s,
             {
@@ -247,7 +249,12 @@ describe('Fee Payer', function () {
 
         const balanceAfter = await provider.getBalance(await nocoin.getAddress());
         assert(balanceBefore.eq(balanceAfter), "payee balance must be unchanged")
-        assert(balanceBefore.sub(ethers.utils.parseEther('30')).lt(balanceAfter), "payer balance must be decreased")
+
+        const payerBalanceAfter = await provider.getBalance(wallet.address);
+        assert(payerBalance.sub(payerBalanceAfter).gte(ethers.utils.parseEther('30')), "payer balance must be decreased");
+
+        const receiverBalanceAfter = await provider.getBalance(dummy.address);
+        assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('30')), "receiver balance must be increased");
     });
 
 
