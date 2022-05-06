@@ -249,6 +249,7 @@ describe('Sponsor', function () {
             gasLimit: 21000,
             gasPrice: 0,
             nonce,
+            value: ethers.utils.parseEther('1')
         }
 
         const rawSignedTx = await nocoin.signTransaction(tx)
@@ -260,13 +261,39 @@ describe('Sponsor', function () {
         assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
 
         const balanceAfter = await provider.getBalance(await nocoin.getAddress());
-        assert(balanceBefore.eq(balanceAfter), "payee balance must be unchanged");
+
+        assert(balanceAfter.sub(balanceBefore).eq(ethers.utils.parseEther("29")), "payee balance must be unchanged");
 
         const payerBalanceAfter = await provider.getBalance(wallet.address);
         assert(payerBalance.sub(payerBalanceAfter).gt(ethers.utils.parseEther('30')), "payer balance must be decreased");
 
         const receiverBalanceAfter = await provider.getBalance(dummy.address);
-        assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('30')), "receiver balance must be increased");
+        assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('1')), "receiver balance must be increased");
+    });
+
+
+    it('payee not enough EZC', async function () {
+        const [nonce] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+        ])
+
+        const tx = {
+            chainId,
+            to: dummy.address,
+            gasLimit: 21000,
+            gasPrice: 0,
+            nonce,
+            value: ethers.utils.parseEther('100000')
+        }
+
+        const rawSignedTx = await nocoin.signTransaction(tx)
+
+        await assert.rejects(evmpp.connect(wallet).callStatic.sponsor(rawSignedTx,
+            { gasLimit: 100000 }), (err) => {
+                const body = JSON.parse(err.error.body)
+                assert.strictEqual(body.error.message, 'insufficient balance for transfer');
+                return true;
+            });
     });
 
 
