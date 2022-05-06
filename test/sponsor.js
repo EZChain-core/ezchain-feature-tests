@@ -234,8 +234,42 @@ describe('Sponsor', function () {
 
     });
 
+    it('transfer: balance change', async function () {
+        const [nonce, balanceBefore, payerBalance, receiverBalance] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+            provider.getBalance(nocoin.address),
+            provider.getBalance(wallet.address),
+            provider.getBalance(dummy.address),
+        ])
 
-    it('balance change', async function () {
+        const tx = {
+            chainId,
+            to: dummy.address,
+            gasLimit: 21000,
+            gasPrice: 0,
+            nonce,
+        }
+
+        const rawSignedTx = await nocoin.signTransaction(tx)
+
+        const res = await evmpp.connect(wallet).sponsor(rawSignedTx,
+            { value: ethers.utils.parseEther('30'), gasLimit: 100000 })
+
+        const receipt = await res.wait(1);
+        assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
+
+        const balanceAfter = await provider.getBalance(await nocoin.getAddress());
+        assert(balanceAfter.sub(balanceBefore).eq(ethers.utils.parseEther("30")), "payee balance must be increased");
+
+        const payerBalanceAfter = await provider.getBalance(wallet.address);
+        assert(payerBalance.sub(payerBalanceAfter).gt(ethers.utils.parseEther('30')), "payer balance must be decreased");
+
+        const receiverBalanceAfter = await provider.getBalance(dummy.address);
+        assert(receiverBalanceAfter.eq(receiverBalance), "receiver balance must be unchanged");
+    });
+
+
+    it('balance change: payee value = 0', async function () {
         const [nonce, balanceBefore, payerBalance, receiverBalance] = await Promise.all([
             nocoin.getTransactionCount('pending'),
             provider.getBalance(nocoin.address),
@@ -262,13 +296,52 @@ describe('Sponsor', function () {
 
         const balanceAfter = await provider.getBalance(await nocoin.getAddress());
 
-        assert(balanceAfter.sub(balanceBefore).eq(ethers.utils.parseEther("29")), "payee balance must be unchanged");
+        assert(balanceAfter.sub(balanceBefore).eq(ethers.utils.parseEther("29")), "payee balance must be increased");
 
         const payerBalanceAfter = await provider.getBalance(wallet.address);
         assert(payerBalance.sub(payerBalanceAfter).gt(ethers.utils.parseEther('30')), "payer balance must be decreased");
 
         const receiverBalanceAfter = await provider.getBalance(dummy.address);
         assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('1')), "receiver balance must be increased");
+    });
+
+
+    it('transfer: payee balance = 0', async function () {
+        const nocoin = new ethers.Wallet.createRandom().connect(provider)
+
+        const [nonce, balanceBefore, payerBalance, receiverBalance] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+            provider.getBalance(nocoin.address),
+            provider.getBalance(wallet.address),
+            provider.getBalance(dummy.address),
+        ])
+
+        const tx = {
+            chainId,
+            to: dummy.address,
+            gasLimit: 21000,
+            gasPrice: 0,
+            nonce,
+            value: ethers.utils.parseEther('30')
+        }
+
+        const rawSignedTx = await nocoin.signTransaction(tx)
+
+        const res = await evmpp.connect(wallet).sponsor(rawSignedTx,
+            { value: ethers.utils.parseEther('30'), gasLimit: 100000 })
+
+        const receipt = await res.wait(1);
+        assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
+
+        const balanceAfter = await provider.getBalance(await nocoin.getAddress());
+
+        assert(balanceAfter.eq(balanceBefore), "payee balance must be unchanged");
+
+        const payerBalanceAfter = await provider.getBalance(wallet.address);
+        assert(payerBalance.sub(payerBalanceAfter).gt(ethers.utils.parseEther('30')), "payer balance must be decreased");
+
+        const receiverBalanceAfter = await provider.getBalance(dummy.address);
+        assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('30')), "receiver balance must be increased");
     });
 
 
