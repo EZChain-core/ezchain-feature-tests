@@ -3,6 +3,7 @@ const assert = require('assert');
 const { getWallet } = require('../lib/accounts')
 const { deploy } = require('../lib/solc_util')
 const { createEVMPP } = require('../lib/evmpp')
+const { AddressZero } = ethers.constants
 
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider(RPC)
@@ -266,6 +267,9 @@ describe('Sponsor', function () {
 
         const receiverBalanceAfter = await provider.getBalance(dummy.address);
         assert(receiverBalanceAfter.eq(receiverBalance), "receiver balance must be unchanged");
+    
+        assert.equal(receipt.logs?.length, 0, "transfer receipt logs must be 0")
+
     });
 
 
@@ -303,6 +307,18 @@ describe('Sponsor', function () {
 
         const receiverBalanceAfter = await provider.getBalance(dummy.address);
         assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('1')), "receiver balance must be increased");
+    
+        // transfer logs
+        assert.equal(receipt.logs?.length, 1, "transfer receipt logs must be 1")
+        
+        const blockNumber = receipt.blockNumber
+
+        const logs = await provider.getLogs({
+            fromBlock: blockNumber - 10,
+            toBlock: blockNumber,
+            address: AddressZero,
+        })
+        assert(logs?.some(log => log.transactionHash == receipt.transactionHash));
     });
 
 
@@ -342,6 +358,19 @@ describe('Sponsor', function () {
 
         const receiverBalanceAfter = await provider.getBalance(dummy.address);
         assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('30')), "receiver balance must be increased");
+    
+        // transfer logs
+        assert.equal(receipt.logs?.length, 1, "transfer receipt logs must be 1")
+    
+        const blockNumber = receipt.blockNumber
+
+        const logs = await provider.getLogs({
+            fromBlock: blockNumber - 10,
+            toBlock: blockNumber,
+            address: AddressZero,
+        })
+        assert(logs?.some(log => log.transactionHash == receipt.transactionHash));
+
     });
 
 
@@ -382,7 +411,20 @@ describe('Sponsor', function () {
 
         const receiverBalanceAfter = await provider.getBalance(dummy.address);
         assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('2')), "receiver balance must be increased");
+
+        // transfer logs
+        assert.equal(receipt.logs?.length, 1, "transfer receipt logs must be 1")
+        
+        const blockNumber = receipt.blockNumber
+
+        const logs = await provider.getLogs({
+            fromBlock: blockNumber - 10,
+            toBlock: blockNumber,
+            address: AddressZero,
+        })
+        assert(logs?.some(log => log.transactionHash == receipt.transactionHash));
     });
+
 
     it('payee not enough EZC', async function () {
         const [nonce] = await Promise.all([
