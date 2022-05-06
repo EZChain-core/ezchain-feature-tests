@@ -345,6 +345,45 @@ describe('Sponsor', function () {
     });
 
 
+    it('transfer: payee balance increased', async function () {
+        const nocoin = new ethers.Wallet.createRandom().connect(provider)
+        const resp = await wallet.sendTransaction({ to: nocoin.address, value: ethers.utils.parseEther("1")})
+        await resp.wait(1);
+
+        const [nonce, balanceBefore, payerBalance, receiverBalance] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+            provider.getBalance(nocoin.address),
+            provider.getBalance(wallet.address),
+            provider.getBalance(dummy.address),
+        ])
+
+        const tx = {
+            chainId,
+            to: dummy.address,
+            gasLimit: 21000,
+            gasPrice: 0,
+            nonce,
+            value: ethers.utils.parseEther('2')
+        }
+
+        const rawSignedTx = await nocoin.signTransaction(tx)
+
+        const res = await evmpp.connect(wallet).sponsor(rawSignedTx,
+            { value: ethers.utils.parseEther('1.5'), gasLimit: 100000 })
+
+        const receipt = await res.wait(1);
+        assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
+
+        const balanceAfter = await provider.getBalance(await nocoin.getAddress());
+        assert(balanceAfter.eq(ethers.utils.parseEther('0.5')), "payee balance must be 0.5");
+
+        const payerBalanceAfter = await provider.getBalance(wallet.address);
+        assert(payerBalance.sub(payerBalanceAfter).gt(ethers.utils.parseEther('1.5')), "payer balance must be decreased");
+
+        const receiverBalanceAfter = await provider.getBalance(dummy.address);
+        assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('2')), "receiver balance must be increased");
+    });
+
     it('payee not enough EZC', async function () {
         const [nonce] = await Promise.all([
             nocoin.getTransactionCount('pending'),
