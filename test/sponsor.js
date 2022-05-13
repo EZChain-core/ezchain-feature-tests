@@ -3,6 +3,7 @@ const assert = require('assert');
 const { getWallet } = require('../lib/accounts')
 const { deploy } = require('../lib/solc_util')
 const { createEVMPP } = require('../lib/evmpp')
+const { AddressZero } = ethers.constants
 
 const RPC = process.env.RPC || "http://localhost:9650/ext/bc/C/rpc"
 const provider = new ethers.providers.JsonRpcProvider(RPC)
@@ -234,8 +235,7 @@ describe('Sponsor', function () {
 
     });
 
-
-    it('balance change', async function () {
+    it('transfer: balance change', async function () {
         const [nonce, balanceBefore, payerBalance, receiverBalance] = await Promise.all([
             nocoin.getTransactionCount('pending'),
             provider.getBalance(nocoin.address),
@@ -260,13 +260,194 @@ describe('Sponsor', function () {
         assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
 
         const balanceAfter = await provider.getBalance(await nocoin.getAddress());
-        assert(balanceBefore.eq(balanceAfter), "payee balance must be unchanged");
+        assert(balanceAfter.sub(balanceBefore).eq(ethers.utils.parseEther("30")), "payee balance must be increased");
+
+        const payerBalanceAfter = await provider.getBalance(wallet.address);
+        assert(payerBalance.sub(payerBalanceAfter).gt(ethers.utils.parseEther('30')), "payer balance must be decreased");
+
+        const receiverBalanceAfter = await provider.getBalance(dummy.address);
+        assert(receiverBalanceAfter.eq(receiverBalance), "receiver balance must be unchanged");
+    
+        assert.equal(receipt.logs?.length, 0, "transfer receipt logs must be 0")
+
+    });
+
+
+    it('balance change: payee value = 0', async function () {
+        const [nonce, balanceBefore, payerBalance, receiverBalance] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+            provider.getBalance(nocoin.address),
+            provider.getBalance(wallet.address),
+            provider.getBalance(dummy.address),
+        ])
+
+        const tx = {
+            chainId,
+            to: dummy.address,
+            gasLimit: 21000,
+            gasPrice: 0,
+            nonce,
+            value: ethers.utils.parseEther('1')
+        }
+
+        const rawSignedTx = await nocoin.signTransaction(tx)
+
+        const res = await evmpp.connect(wallet).sponsor(rawSignedTx,
+            { value: ethers.utils.parseEther('30'), gasLimit: 100000 })
+
+        const receipt = await res.wait(1);
+        assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
+
+        const balanceAfter = await provider.getBalance(await nocoin.getAddress());
+
+        assert(balanceAfter.sub(balanceBefore).eq(ethers.utils.parseEther("29")), "payee balance must be increased");
+
+        const payerBalanceAfter = await provider.getBalance(wallet.address);
+        assert(payerBalance.sub(payerBalanceAfter).gt(ethers.utils.parseEther('30')), "payer balance must be decreased");
+
+        const receiverBalanceAfter = await provider.getBalance(dummy.address);
+        assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('1')), "receiver balance must be increased");
+    
+        // transfer logs
+        assert.equal(receipt.logs?.length, 1, "transfer receipt logs must be 1")
+        
+        const blockNumber = receipt.blockNumber
+
+        const logs = await provider.getLogs({
+            fromBlock: blockNumber - 10,
+            toBlock: blockNumber,
+            address: AddressZero,
+        })
+        assert(logs?.some(log => log.transactionHash == receipt.transactionHash));
+    });
+
+
+    it('transfer: payee balance = 0', async function () {
+        const nocoin = new ethers.Wallet.createRandom().connect(provider)
+
+        const [nonce, balanceBefore, payerBalance, receiverBalance] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+            provider.getBalance(nocoin.address),
+            provider.getBalance(wallet.address),
+            provider.getBalance(dummy.address),
+        ])
+
+        const tx = {
+            chainId,
+            to: dummy.address,
+            gasLimit: 21000,
+            gasPrice: 0,
+            nonce,
+            value: ethers.utils.parseEther('30')
+        }
+
+        const rawSignedTx = await nocoin.signTransaction(tx)
+
+        const res = await evmpp.connect(wallet).sponsor(rawSignedTx,
+            { value: ethers.utils.parseEther('30'), gasLimit: 100000 })
+
+        const receipt = await res.wait(1);
+        assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
+
+        const balanceAfter = await provider.getBalance(await nocoin.getAddress());
+
+        assert(balanceAfter.eq(balanceBefore), "payee balance must be unchanged");
 
         const payerBalanceAfter = await provider.getBalance(wallet.address);
         assert(payerBalance.sub(payerBalanceAfter).gt(ethers.utils.parseEther('30')), "payer balance must be decreased");
 
         const receiverBalanceAfter = await provider.getBalance(dummy.address);
         assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('30')), "receiver balance must be increased");
+    
+        // transfer logs
+        assert.equal(receipt.logs?.length, 1, "transfer receipt logs must be 1")
+    
+        const blockNumber = receipt.blockNumber
+
+        const logs = await provider.getLogs({
+            fromBlock: blockNumber - 10,
+            toBlock: blockNumber,
+            address: AddressZero,
+        })
+        assert(logs?.some(log => log.transactionHash == receipt.transactionHash));
+
+    });
+
+
+    it('transfer: payee balance increased', async function () {
+        const nocoin = new ethers.Wallet.createRandom().connect(provider)
+        const resp = await wallet.sendTransaction({ to: nocoin.address, value: ethers.utils.parseEther("1")})
+        await resp.wait(1);
+
+        const [nonce, balanceBefore, payerBalance, receiverBalance] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+            provider.getBalance(nocoin.address),
+            provider.getBalance(wallet.address),
+            provider.getBalance(dummy.address),
+        ])
+
+        const tx = {
+            chainId,
+            to: dummy.address,
+            gasLimit: 21000,
+            gasPrice: 0,
+            nonce,
+            value: ethers.utils.parseEther('2')
+        }
+
+        const rawSignedTx = await nocoin.signTransaction(tx)
+
+        const res = await evmpp.connect(wallet).sponsor(rawSignedTx,
+            { value: ethers.utils.parseEther('1.5'), gasLimit: 100000 })
+
+        const receipt = await res.wait(1);
+        assert(receipt.gasUsed.gt(21000 * 2), 'double intrinsic gas')
+
+        const balanceAfter = await provider.getBalance(await nocoin.getAddress());
+        assert(balanceAfter.eq(ethers.utils.parseEther('0.5')), "payee balance must be 0.5");
+
+        const payerBalanceAfter = await provider.getBalance(wallet.address);
+        assert(payerBalance.sub(payerBalanceAfter).gt(ethers.utils.parseEther('1.5')), "payer balance must be decreased");
+
+        const receiverBalanceAfter = await provider.getBalance(dummy.address);
+        assert(receiverBalanceAfter.sub(receiverBalance).eq(ethers.utils.parseEther('2')), "receiver balance must be increased");
+
+        // transfer logs
+        assert.equal(receipt.logs?.length, 1, "transfer receipt logs must be 1")
+        
+        const blockNumber = receipt.blockNumber
+
+        const logs = await provider.getLogs({
+            fromBlock: blockNumber - 10,
+            toBlock: blockNumber,
+            address: AddressZero,
+        })
+        assert(logs?.some(log => log.transactionHash == receipt.transactionHash));
+    });
+
+
+    it('payee not enough EZC', async function () {
+        const [nonce] = await Promise.all([
+            nocoin.getTransactionCount('pending'),
+        ])
+
+        const tx = {
+            chainId,
+            to: dummy.address,
+            gasLimit: 21000,
+            gasPrice: 0,
+            nonce,
+            value: ethers.utils.parseEther('100000')
+        }
+
+        const rawSignedTx = await nocoin.signTransaction(tx)
+
+        await assert.rejects(evmpp.connect(wallet).callStatic.sponsor(rawSignedTx,
+            { gasLimit: 100000 }), (err) => {
+                const body = JSON.parse(err.error.body)
+                assert.strictEqual(body.error.message, 'insufficient balance for transfer');
+                return true;
+            });
     });
 
 
